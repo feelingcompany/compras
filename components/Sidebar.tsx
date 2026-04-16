@@ -8,6 +8,7 @@ const NAV = [
   { id: 'sep1',         label: '— PROCESO',          path: '', sep: true },
   { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes' },
   { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of' },
+  { id: 'cotizaciones', label: '↳ Cotizaciones',      path: '/cotizaciones' },
   { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria' },
   { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion' },
   { id: 'pagos',        label: '9. Pagos',            path: '/pagos' },
@@ -33,7 +34,6 @@ export default function Sidebar() {
         <div style={{ fontSize: 14, fontWeight: 500 }}>Compras FC</div>
         <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>Feeling Company</div>
       </div>
-
       <nav style={{ flex: 1, padding: '6px 0', overflowY: 'auto' }}>
         {NAV.map(n => {
           if ((n as any).sep) return (
@@ -57,7 +57,6 @@ export default function Sidebar() {
           )
         })}
       </nav>
-
       <div style={{ padding: '12px 16px', borderTop: '0.5px solid #ebebeb' }}>
         {usuario && (
           <div style={{ marginBottom: 8 }}>
