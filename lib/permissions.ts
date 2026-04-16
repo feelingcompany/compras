@@ -1,6 +1,7 @@
 import { Rol } from './supabase'
 
 export type Modulo =
+  | 'mi-trabajo'
   | 'dashboard'
   | 'alertas'
   | 'score'
@@ -28,6 +29,7 @@ interface PermisoConfig {
 const PERMISOS: Record<Rol, PermisoConfig> = {
   gerencia: {
     modulos: [
+      'mi-trabajo',
       'dashboard',
       'alertas',
       'score',
@@ -57,6 +59,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
 
   admin_compras: {
     modulos: [
+      'mi-trabajo',
       'dashboard',
       'alertas',
       'score',
@@ -81,6 +84,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
 
   encargado: {
     modulos: [
+      'mi-trabajo',
       'dashboard',
       'alertas',
       'solicitudes',
@@ -100,7 +104,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
   },
 
   solicitante: {
-    modulos: ['dashboard', 'solicitudes', 'ordenes'],
+    modulos: ['mi-trabajo', 'dashboard', 'solicitudes', 'ordenes'],
     acciones: {
       ordenes: ['ver'], // Solo las que solicitó
       solicitudes: ['ver', 'crear'],
