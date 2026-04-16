@@ -5,6 +5,8 @@ import Link from 'next/link'
 
 const NAV = [
   { id: 'dashboard',    label: 'Dashboard',          path: '/dashboard' },
+  { id: 'alertas',      label: '⚡ Alertas',          path: '/alertas' },
+  { id: 'score',        label: '★ Score equipo',      path: '/score' },
   { id: 'sep1',         label: '— PROCESO',          path: '', sep: true },
   { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes' },
   { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of' },
