@@ -7,7 +7,14 @@ import { useAuth } from '@/lib/auth'
 export default function MiTrabajoPage() {
   const { usuario } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [tareas, setTareas] = useState({
+  const [tareas, setTareas] = useState<{
+    aprobaciones: any[]
+    alertasCriticas: any[]
+    solicitudesPendientes: any[]
+    ofsSinCotizaciones: any[]
+    cotizacionesPorRevisar: any[]
+    proveedoresPorEvaluar: any[]
+  }>({
     aprobaciones: [],
     alertasCriticas: [],
     solicitudesPendientes: [],
