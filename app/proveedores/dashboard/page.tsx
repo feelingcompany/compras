@@ -10,10 +10,9 @@ export default function ProveedoresDashboardPage() {
   const [proveedor, setProveedor] = useState<any>(null)
   const [ofs, setOfs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [filtro, setFiltro] = useState('todas') // todas, pendientes, entregadas
+  const [filtro, setFiltro] = useState('todas')
   
   useEffect(() => {
-    // Verificar sesión
     const sessionData = localStorage.getItem('proveedor_portal')
     if (!sessionData) {
       router.push('/proveedores/login')
@@ -59,7 +58,6 @@ export default function ProveedoresDashboardPage() {
     if (!confirm(`¿Cambiar estado a "${nuevoEstado}"?`)) return
     
     try {
-      // 1. Actualizar OF
       const { error: errorOf } = await supabase
         .from('ofs')
         .update({ estado: nuevoEstado })
@@ -67,7 +65,6 @@ export default function ProveedoresDashboardPage() {
       
       if (errorOf) throw errorOf
       
-      // 2. Registrar actualización
       const { error: errorUpdate } = await supabase
         .from('actualizaciones_proveedor')
         .insert({
@@ -111,75 +108,123 @@ export default function ProveedoresDashboardPage() {
       .reduce((sum, of) => sum + (of.valor_total || 0), 0)
   }
   
+  const formatearMonto = (monto: number) => {
+    if (monto >= 1000000) {
+      return `$${(monto / 1000000).toFixed(1)}M`
+    }
+    return `$${(monto / 1000).toFixed(0)}K`
+  }
+  
   if (!proveedor) {
     return null
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--gray-50)' }}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Portal de Proveedores</h1>
-              <p className="text-sm text-gray-500">{proveedor.proveedor.nombre}</p>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-            >
-              Cerrar Sesión
-            </button>
+      <div style={{
+        backgroundColor: 'white',
+        borderBottom: '1px solid var(--gray-200)',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        <div style={{
+          maxWidth: '80rem',
+          margin: '0 auto',
+          padding: 'var(--space-6)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <h1 style={{
+              fontSize: 'var(--text-2xl)',
+              fontWeight: 'var(--font-bold)',
+              color: 'var(--gray-900)',
+              marginBottom: 'var(--space-1)'
+            }}>
+              🏪 Portal de Proveedores
+            </h1>
+            <p style={{
+              fontSize: 'var(--text-sm)',
+              color: 'var(--gray-500)'
+            }}>
+              {proveedor.proveedor.nombre}
+            </p>
           </div>
+          <button
+            onClick={logout}
+            className="btn btn-secondary"
+          >
+            Cerrar Sesión
+          </button>
         </div>
       </div>
       
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div style={{
+        maxWidth: '80rem',
+        margin: '0 auto',
+        padding: 'var(--space-8)'
+      }}>
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Pendientes de Entregar</div>
-            <div className="text-2xl font-bold text-orange-600 mt-1">{estadisticas.pendientes}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Entregadas</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">{estadisticas.entregadas}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Pagadas</div>
-            <div className="text-2xl font-bold text-blue-600 mt-1">{estadisticas.pagadas}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Total Facturado</div>
-            <div className="text-xl font-bold text-gray-900 mt-1">
-              ${(estadisticas.totalFacturado / 1000000).toFixed(1)}M
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 'var(--space-4)',
+          marginBottom: 'var(--space-8)'
+        }}>
+          <div className="stat-card">
+            <div className="stat-label">Pendientes de Entregar</div>
+            <div className="stat-value" style={{ color: 'var(--warning-600)' }}>
+              {estadisticas.pendientes}
             </div>
+            <div className="stat-description">OFs aprobadas</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Pendiente de Pago</div>
-            <div className="text-xl font-bold text-purple-600 mt-1">
-              ${(estadisticas.pendientePago / 1000000).toFixed(1)}M
+          
+          <div className="stat-card">
+            <div className="stat-label">Entregadas</div>
+            <div className="stat-value" style={{ color: 'var(--success-600)' }}>
+              {estadisticas.entregadas}
             </div>
+            <div className="stat-description">Sin pagar</div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-label">Pagadas</div>
+            <div className="stat-value" style={{ color: 'var(--primary-600)' }}>
+              {estadisticas.pagadas}
+            </div>
+            <div className="stat-description">Completadas</div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-label">Total Facturado</div>
+            <div className="stat-value" style={{ color: 'var(--gray-900)', fontSize: 'var(--text-2xl)' }}>
+              {formatearMonto(estadisticas.totalFacturado)}
+            </div>
+            <div className="stat-description">Pagado</div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-label">Pendiente de Pago</div>
+            <div className="stat-value" style={{ color: 'var(--warning-600)', fontSize: 'var(--text-2xl)' }}>
+              {formatearMonto(estadisticas.pendientePago)}
+            </div>
+            <div className="stat-description">Por cobrar</div>
           </div>
         </div>
         
         {/* Filtros */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="flex gap-2">
+        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {[
-              { value: 'todas', label: 'Todas las OFs' },
-              { value: 'pendientes', label: 'Pendientes de Entregar' },
-              { value: 'entregadas', label: 'Entregadas' }
+              { value: 'todas', label: '📊 Todas las OFs' },
+              { value: 'pendientes', label: '⏳ Pendientes de Entregar' },
+              { value: 'entregadas', label: '✅ Entregadas' }
             ].map(f => (
               <button
                 key={f.value}
                 onClick={() => setFiltro(f.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  filtro === f.value
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={filtro === f.value ? 'btn btn-primary' : 'btn btn-secondary'}
               >
                 {f.label}
               </button>
@@ -188,53 +233,86 @@ export default function ProveedoresDashboardPage() {
         </div>
         
         {/* Lista de OFs */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           {loading ? (
-            <div className="p-12 text-center text-gray-400">Cargando...</div>
+            <div style={{
+              padding: 'var(--space-12)',
+              textAlign: 'center',
+              color: 'var(--gray-400)'
+            }}>
+              <div className="loading" style={{
+                width: '3rem',
+                height: '3rem',
+                margin: '0 auto var(--space-4)'
+              }}></div>
+              Cargando...
+            </div>
           ) : ofsFiltradas.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">No hay OFs con este filtro</div>
+            <div style={{
+              padding: 'var(--space-12)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>📭</div>
+              <div style={{
+                fontSize: 'var(--text-lg)',
+                fontWeight: 'var(--font-semibold)',
+                color: 'var(--gray-900)',
+                marginBottom: 'var(--space-2)'
+              }}>
+                No hay OFs con este filtro
+              </div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--gray-500)' }}>
+                Intentá con otro filtro
+              </div>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Valor</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody>
                   {ofsFiltradas.map(of => (
-                    <tr key={of.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{of.codigo}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600 max-w-md truncate">
-                        {of.solicitud?.descripcion || of.descripcion || '-'}
+                    <tr key={of.id}>
+                      <td style={{ fontWeight: 'var(--font-semibold)' }}>{of.codigo}</td>
+                      <td style={{ maxWidth: '300px' }}>
+                        <div style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {of.solicitud?.descripcion || of.descripcion || '-'}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                        ${(of.valor_total / 1000000).toFixed(2)}M
+                      <td style={{ fontWeight: 'var(--font-semibold)' }}>
+                        {formatearMonto(of.valor_total)}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          of.estado === 'aprobada' ? 'bg-yellow-100 text-yellow-800' :
-                          of.estado === 'radicada' ? 'bg-orange-100 text-orange-800' :
-                          of.estado === 'recibida' ? 'bg-green-100 text-green-800' :
-                          of.estado === 'pagada' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
+                      <td>
+                        <span className={`badge ${
+                          of.estado === 'aprobada' ? 'badge-warning' :
+                          of.estado === 'radicada' ? 'badge-warning' :
+                          of.estado === 'recibida' ? 'badge-success' :
+                          of.estado === 'pagada' ? 'badge-primary' :
+                          'badge-primary'
                         }`}>
                           {of.estado}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td>
                         {new Date(of.created_at).toLocaleDateString('es-CO')}
                       </td>
-                      <td className="px-6 py-4">
+                      <td>
                         {(of.estado === 'aprobada' || of.estado === 'radicada') && (
                           <button
                             onClick={() => actualizarEstado(of.id, 'recibida')}
-                            className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                            className="btn btn-success btn-sm"
                           >
                             ✓ Marcar Entregada
                           </button>
