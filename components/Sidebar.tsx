@@ -2,29 +2,55 @@
 import { useAuth } from '@/lib/auth'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { usePermissions, Modulo } from '@/lib/permissions'
 
 const NAV = [
-  { id: 'dashboard',    label: 'Dashboard',          path: '/dashboard' },
-  { id: 'alertas',      label: '⚡ Alertas',          path: '/alertas' },
-  { id: 'score',        label: '★ Score equipo',      path: '/score' },
+  { id: 'dashboard',    label: 'Dashboard',          path: '/dashboard',     modulo: 'dashboard' as Modulo },
+  { id: 'alertas',      label: '⚡ Alertas',          path: '/alertas',       modulo: 'alertas' as Modulo },
+  { id: 'score',        label: '★ Score equipo',      path: '/score',         modulo: 'score' as Modulo },
   { id: 'sep1',         label: '— PROCESO',          path: '', sep: true },
-  { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes' },
-  { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of' },
-  { id: 'cotizaciones', label: '↳ Cotizaciones',      path: '/cotizaciones' },
-  { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria' },
-  { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion' },
-  { id: 'pagos',        label: '9. Pagos',            path: '/pagos' },
+  { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes',   modulo: 'solicitudes' as Modulo },
+  { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of',      modulo: 'nueva-of' as Modulo },
+  { id: 'cotizaciones', label: '↳ Cotizaciones',      path: '/cotizaciones',  modulo: 'cotizaciones' as Modulo },
+  { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria',     modulo: 'auditoria' as Modulo },
+  { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion',    modulo: 'radicacion' as Modulo },
+  { id: 'pagos',        label: '9. Pagos',            path: '/pagos',         modulo: 'pagos' as Modulo },
   { id: 'sep2',         label: '— GESTIÓN',          path: '', sep: true },
-  { id: 'ordenes',      label: 'Órdenes (OF)',        path: '/ordenes' },
-  { id: 'proveedores',  label: 'Proveedores',         path: '/proveedores' },
-  { id: 'evaluacion',   label: 'Eval. Proveedores',   path: '/evaluacion' },
-  { id: 'contraloria',  label: 'Contraloría',         path: '/contraloria' },
+  { id: 'ordenes',      label: 'Órdenes (OF)',        path: '/ordenes',       modulo: 'ordenes' as Modulo },
+  { id: 'proveedores',  label: 'Proveedores',         path: '/proveedores',   modulo: 'proveedores' as Modulo },
+  { id: 'evaluacion',   label: 'Eval. Proveedores',   path: '/evaluacion',    modulo: 'evaluacion' as Modulo },
+  { id: 'contraloria',  label: 'Contraloría',         path: '/contraloria',   modulo: 'contraloria' as Modulo },
+  { id: 'sep3',         label: '— SISTEMA',          path: '', sep: true },
+  { id: 'admin',        label: '⚙️ Administración',   path: '/admin',         modulo: 'admin' as Modulo },
 ]
 
 export default function Sidebar() {
   const { usuario, logout } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
+
+  // Obtener permisos del usuario actual
+  const permisos = usuario ? usePermissions(usuario.rol, usuario.id) : null
+
+  // Filtrar navegación según permisos
+  const navFiltrado = NAV.filter(item => {
+    // Siempre mostrar separadores
+    if ((item as any).sep) return true
+    
+    // Si no hay permisos, no mostrar nada (loading state)
+    if (!permisos || !item.modulo) return false
+    
+    // Verificar si tiene acceso al módulo
+    return permisos.puedeAcceder(item.modulo)
+  })
+
+  // Filtrar separadores huérfanos (sin items después)
+  const navLimpio = navFiltrado.filter((item, idx) => {
+    if (!(item as any).sep) return true
+    // Si es separador, verificar que el siguiente item no sea separador
+    const siguiente = navFiltrado[idx + 1]
+    return siguiente && !(siguiente as any).sep
+  })
 
   return (
     <aside style={{
@@ -37,7 +63,7 @@ export default function Sidebar() {
         <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>Feeling Company</div>
       </div>
       <nav style={{ flex: 1, padding: '6px 0', overflowY: 'auto' }}>
-        {NAV.map(n => {
+        {navLimpio.map(n => {
           if ((n as any).sep) return (
             <div key={n.id} style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: '#ccc', letterSpacing: '.06em' }}>{n.label}</div>
           )

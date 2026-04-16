@@ -1,6 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase, OrdenFacturacion } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { usePermissions } from '@/lib/permissions'
+import { RouteGuard } from '@/components/RouteGuard'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
@@ -19,18 +22,35 @@ function Badge({ val }: { val: string }) {
 }
 
 export default function OrdenesPage() {
+  const { usuario } = useAuth()
   const [ofs, setOfs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroEstado, setFiltroEstado] = useState('')
   const [busca, setBusca] = useState('')
 
-  useEffect(() => { loadOfs() }, [])
+  useEffect(() => { if (usuario) loadOfs() }, [usuario])
 
   async function loadOfs() {
-    const { data } = await supabase
+    if (!usuario) return
+
+    const permisos = usePermissions(usuario.rol, usuario.id)
+    const filtros = permisos.getFiltrosSupabase()
+
+    // Construir query con filtros según rol
+    let query = supabase
       .from('ordenes_facturacion')
       .select(`*, proveedores(razon_social, codigo), encargado:usuarios!encargado_id(nombre)`)
       .order('created_at', { ascending: false })
+
+    // Aplicar filtros según rol
+    if (filtros.encargado_id) {
+      query = query.eq('encargado_id', filtros.encargado_id)
+    }
+    if (filtros.solicitante_id) {
+      query = query.eq('solicitante_id', filtros.solicitante_id)
+    }
+
+    const { data } = await query
     setOfs(data || [])
     setLoading(false)
   }
@@ -42,7 +62,8 @@ export default function OrdenesPage() {
   })
 
   return (
-    <div style={{ padding: 24 }}>
+    <RouteGuard modulo="ordenes">
+      <div style={{ padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 17, fontWeight: 500 }}>Órdenes de facturación</div>
         <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>Gestión y seguimiento de OFs</div>
@@ -89,5 +110,6 @@ export default function OrdenesPage() {
         )}
       </div>
     </div>
+    </RouteGuard>
   )
 }

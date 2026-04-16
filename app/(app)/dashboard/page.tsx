@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { usePermissions } from '@/lib/permissions'
+import { RouteGuard } from '@/components/RouteGuard'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 const fmtM = (n: number) => `$${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n / 1000000)}M`
@@ -12,16 +14,34 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('gasto')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (usuario) load() }, [usuario])
 
   async function load() {
+    if (!usuario) return
+
+    const permisos = usePermissions(usuario.rol, usuario.id)
+    const filtros = permisos.getFiltrosSupabase()
+
+    // Construir query con filtros según rol
+    let ofQuery = supabase
+      .from('ordenes_facturacion')
+      .select('id, valor_total, estado_pago, estado_verificacion, proveedor_id, ciudad, created_at, proveedores(razon_social)')
+    
+    // Aplicar filtros según rol
+    if (filtros.encargado_id) {
+      ofQuery = ofQuery.eq('encargado_id', filtros.encargado_id)
+    }
+    if (filtros.solicitante_id) {
+      ofQuery = ofQuery.eq('solicitante_id', filtros.solicitante_id)
+    }
+
     const [
       { data: ofs },
       { data: provs },
       { data: pagos },
       { data: cotz },
     ] = await Promise.all([
-      supabase.from('ordenes_facturacion').select('id, valor_total, estado_pago, estado_verificacion, proveedor_id, ciudad, created_at, proveedores(razon_social)'),
+      ofQuery,
       supabase.from('proveedores').select('id, razon_social, score, total_ordenes').eq('activo', true),
       supabase.from('pagos').select('monto, fecha, of_id'),
       supabase.from('cotizaciones').select('of_id, valor, seleccionada'),
@@ -111,7 +131,8 @@ export default function DashboardPage() {
   )
 
   return (
-    <div style={{ padding: 24 }}>
+    <RouteGuard modulo="dashboard">
+      <div style={{ padding: 24 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
@@ -321,5 +342,6 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+    </RouteGuard>
   )
 }
