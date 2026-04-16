@@ -2,10 +2,11 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth'
 
 export default function AprobacionesPage() {
+  const { usuario } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const [pendientes, setPendientes] = useState<any[]>([])
   const [filter, setFilter] = useState('todos') // todos, nivel1, nivel2, nivel3, nivel4
   const [showModal, setShowModal] = useState(false)
@@ -17,31 +18,11 @@ export default function AprobacionesPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    loadUser()
-  }, [])
-
-  useEffect(() => {
-    if (user) loadPendientes()
-  }, [user, filter])
-
-  const loadUser = async () => {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (!authUser) {
-      router.push('/login')
-      return
-    }
-
-    const { data: userData } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('email', authUser.email)
-      .single()
-
-    setUser(userData)
-  }
+    if (usuario) loadPendientes()
+  }, [usuario, filter])
 
   const loadPendientes = async () => {
-    if (!user) return
+    if (!usuario) return
     
     setLoading(true)
     
@@ -58,7 +39,7 @@ export default function AprobacionesPage() {
           proveedor:proveedores(razon_social)
         )
       `)
-      .eq('aprobador_id', user.id)
+      .eq('aprobador_id', usuario.id)
       .eq('estado', 'pendiente')
       .order('created_at', { ascending: false })
 
