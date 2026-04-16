@@ -6,24 +6,24 @@ import { usePermissions, Modulo } from '@/lib/permissions'
 
 const NAV = [
   { id: 'mi-trabajo',   label: '🎯 Mi Trabajo',        path: '/mi-trabajo',    modulo: 'mi-trabajo' as Modulo },
-  { id: 'dashboard',    label: 'Dashboard',          path: '/dashboard',     modulo: 'dashboard' as Modulo },
-  { id: 'alertas',      label: '⚡ Alertas',          path: '/alertas',       modulo: 'alertas' as Modulo },
-  { id: 'score',        label: '★ Score equipo',      path: '/score',         modulo: 'score' as Modulo },
-  { id: 'sep1',         label: '— PROCESO',          path: '', sep: true },
-  { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes',   modulo: 'solicitudes' as Modulo },
-  { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of',      modulo: 'nueva-of' as Modulo },
-  { id: 'cotizaciones', label: '↳ Cotizaciones',      path: '/cotizaciones',  modulo: 'cotizaciones' as Modulo },
-  { id: 'aprobaciones', label: '✓ Aprobaciones',      path: '/aprobaciones',  modulo: 'aprobaciones' as Modulo },
-  { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria',     modulo: 'auditoria' as Modulo },
-  { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion',    modulo: 'radicacion' as Modulo },
-  { id: 'pagos',        label: '9. Pagos',            path: '/pagos',         modulo: 'pagos' as Modulo },
-  { id: 'sep2',         label: '— GESTIÓN',          path: '', sep: true },
-  { id: 'ordenes',      label: 'Órdenes (OF)',        path: '/ordenes',       modulo: 'ordenes' as Modulo },
-  { id: 'proveedores',  label: 'Proveedores',         path: '/proveedores',   modulo: 'proveedores' as Modulo },
-  { id: 'evaluacion',   label: 'Eval. Proveedores',   path: '/evaluacion',    modulo: 'evaluacion' as Modulo },
-  { id: 'contraloria',  label: 'Contraloría',         path: '/contraloria',   modulo: 'contraloria' as Modulo },
-  { id: 'sep3',         label: '— SISTEMA',          path: '', sep: true },
-  { id: 'admin',        label: '⚙️ Administración',   path: '/admin',         modulo: 'admin' as Modulo },
+  { id: 'dashboard',    label: '📊 Dashboard',         path: '/dashboard',     modulo: 'dashboard' as Modulo },
+  { id: 'alertas',      label: '⚡ Alertas',           path: '/alertas',       modulo: 'alertas' as Modulo },
+  { id: 'score',        label: '⭐ Score Equipo',      path: '/score',         modulo: 'score' as Modulo },
+  { id: 'sep1',         label: '— COMPRAS',           path: '', sep: true },
+  { id: 'solicitudes',  label: 'Solicitudes',          path: '/solicitudes',   modulo: 'solicitudes' as Modulo },
+  { id: 'nueva',        label: 'Nueva OF',             path: '/nueva-of',      modulo: 'nueva-of' as Modulo },
+  { id: 'cotizaciones', label: 'Cotizaciones',         path: '/cotizaciones',  modulo: 'cotizaciones' as Modulo },
+  { id: 'aprobaciones', label: 'Aprobaciones',         path: '/aprobaciones',  modulo: 'aprobaciones' as Modulo },
+  { id: 'auditoria',    label: 'Auditoría',            path: '/auditoria',     modulo: 'auditoria' as Modulo },
+  { id: 'radicacion',   label: 'Radicación',           path: '/radicacion',    modulo: 'radicacion' as Modulo },
+  { id: 'pagos',        label: 'Pagos',                path: '/pagos',         modulo: 'pagos' as Modulo },
+  { id: 'sep2',         label: '— GESTIÓN',           path: '', sep: true },
+  { id: 'ordenes',      label: 'Órdenes (OF)',         path: '/ordenes',       modulo: 'ordenes' as Modulo },
+  { id: 'proveedores',  label: 'Proveedores',          path: '/proveedores',   modulo: 'proveedores' as Modulo },
+  { id: 'evaluacion',   label: 'Eval. Proveedores',    path: '/evaluacion',    modulo: 'evaluacion' as Modulo },
+  { id: 'contraloria',  label: 'Contraloría',          path: '/contraloria',   modulo: 'contraloria' as Modulo },
+  { id: 'sep3',         label: '— SISTEMA',           path: '', sep: true },
+  { id: 'admin',        label: '⚙️ Admin',             path: '/admin',         modulo: 'admin' as Modulo },
 ]
 
 export default function Sidebar() {
@@ -75,12 +75,12 @@ export default function Sidebar() {
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 16px', fontSize: 13,
-                color: active ? '#1a1a1a' : '#888', fontWeight: active ? 500 : 400,
+                color: active ? '#1a1a1a' : '#4a4a4a', fontWeight: active ? 500 : 400,
                 borderLeft: `2px solid ${active ? '#185FA5' : 'transparent'}`,
                 background: active ? '#fafafa' : 'transparent',
                 cursor: 'pointer', transition: 'all .12s'
               }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? '#185FA5' : '#e0e0e0', flexShrink: 0 }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? '#185FA5' : '#c0c0c0', flexShrink: 0 }} />
                 {n.label}
               </div>
             </Link>
