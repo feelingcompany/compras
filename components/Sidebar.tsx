@@ -24,6 +24,7 @@ const NAV = [
   { id: 'contraloria',  label: 'Contraloría',          path: '/contraloria',   modulo: 'contraloria' as Modulo },
   { id: 'sep3',         label: '— SISTEMA',           path: '', sep: true },
   { id: 'admin',        label: '⚙️ Admin',             path: '/admin',         modulo: 'admin' as Modulo },
+  { id: 'solicitudes-pendientes', label: '👥 Solicitudes Pendientes', path: '/admin/solicitudes-pendientes', modulo: 'admin' as Modulo },
 ]
 
 export default function Sidebar() {
