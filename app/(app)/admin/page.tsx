@@ -348,17 +348,19 @@ export default function AdminPage() {
       {/* Módulos de administración */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 24 }}>
         <a href="/admin/usuarios" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: 20, cursor: 'pointer', transition: 'all 0.2s', ':hover': { borderColor: '#185FA5' } }}>
+          <div style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: 20, cursor: 'pointer', transition: 'all 0.2s' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Gestión de Usuarios</div>
             <div style={{ fontSize: 13, color: '#666' }}>Agregar, editar y administrar usuarios del equipo</div>
           </div>
         </a>
-        <div style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: 20, opacity: 0.5 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Catálogo de Servicios</div>
-          <div style={{ fontSize: 13, color: '#666' }}>Próximamente - Precios históricos y referencias</div>
-        </div>
+        <a href="/admin/catalogo" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: 20, cursor: 'pointer', transition: 'all 0.2s' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Catálogo de Servicios</div>
+            <div style={{ fontSize: 13, color: '#666' }}>Precios de referencia y control de sobrecostos</div>
+          </div>
+        </a>
       </div>
 
       {/* Stats actuales */}
