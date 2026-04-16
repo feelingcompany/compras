@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
-const fmtM = (n: number) => `$${(n / 1000000).toFixed(1)}M`
+const fmtM = (n: number) => `$${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n / 1000000)}M`
 
 export default function DashboardPage() {
   const { usuario } = useAuth()

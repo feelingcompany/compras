@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
-const fmtM = (n: number) => `$${(n / 1000000).toFixed(1)}M`
+const fmtM = (n: number) => `$${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n / 1000000)}M`
 
 const NIVEL_STYLE: Record<string, { bg: string; color: string; border: string }> = {
   critico: { bg: '#FCEBEB', color: '#791F1F', border: '#E24B4A' },

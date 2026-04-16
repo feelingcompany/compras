@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
-const fmtM = (n: number) => `$${(n / 1000000).toFixed(1)}M`
+const fmtM = (n: number) => `$${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n / 1000000)}M`
 
 const SCORE_COLOR = (s: number) => s >= 8 ? '#27500A' : s >= 6 ? '#185FA5' : s >= 4 ? '#BA7517' : '#E24B4A'
 const SCORE_LABEL = (s: number) => s >= 8 ? 'Excelente' : s >= 6 ? 'Bueno' : s >= 4 ? 'Regular' : 'Necesita mejorar'
