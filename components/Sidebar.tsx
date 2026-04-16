@@ -4,12 +4,18 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard' },
-  { id: 'ordenes', label: 'Órdenes (OF)', path: '/ordenes' },
-  { id: 'proveedores', label: 'Proveedores', path: '/proveedores' },
-  { id: 'pagos', label: 'Pagos', path: '/pagos' },
-  { id: 'nueva', label: 'Nueva OF', path: '/nueva-of' },
-  { id: 'contraloria', label: 'Contraloría', path: '/contraloria' },
+  { id: 'dashboard',    label: 'Dashboard',          path: '/dashboard' },
+  { id: 'sep1',         label: '— PROCESO',          path: '', sep: true },
+  { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes' },
+  { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of' },
+  { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria' },
+  { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion' },
+  { id: 'pagos',        label: '9. Pagos',            path: '/pagos' },
+  { id: 'sep2',         label: '— GESTIÓN',          path: '', sep: true },
+  { id: 'ordenes',      label: 'Órdenes (OF)',        path: '/ordenes' },
+  { id: 'proveedores',  label: 'Proveedores',         path: '/proveedores' },
+  { id: 'evaluacion',   label: 'Eval. Proveedores',   path: '/evaluacion' },
+  { id: 'contraloria',  label: 'Contraloría',         path: '/contraloria' },
 ]
 
 export default function Sidebar() {
@@ -17,38 +23,34 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const handleLogout = () => {
-    logout()
-    router.push('/login')
-  }
-
   return (
     <aside style={{
-      width: 200, minWidth: 200, background: '#fff',
+      width: 210, minWidth: 210, background: '#fff',
       borderRight: '0.5px solid #ebebeb', display: 'flex',
       flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0
     }}>
-      <div style={{ padding: '20px 16px 16px', borderBottom: '0.5px solid #ebebeb' }}>
+      <div style={{ padding: '18px 16px 14px', borderBottom: '0.5px solid #ebebeb' }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>Compras FC</div>
         <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>Feeling Company</div>
       </div>
 
-      <nav style={{ flex: 1, padding: '8px 0' }}>
+      <nav style={{ flex: 1, padding: '6px 0', overflowY: 'auto' }}>
         {NAV.map(n => {
-          const active = pathname === n.path || pathname.startsWith(n.path + '/')
+          if ((n as any).sep) return (
+            <div key={n.id} style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: '#ccc', letterSpacing: '.06em' }}>{n.label}</div>
+          )
+          const active = pathname === n.path
           return (
             <Link key={n.id} href={n.path} style={{ textDecoration: 'none' }}>
               <div style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 16px', fontSize: 13, background: 'transparent',
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 16px', fontSize: 13,
                 color: active ? '#1a1a1a' : '#888', fontWeight: active ? 500 : 400,
                 borderLeft: `2px solid ${active ? '#185FA5' : 'transparent'}`,
-                cursor: 'pointer', transition: 'all .15s'
+                background: active ? '#fafafa' : 'transparent',
+                cursor: 'pointer', transition: 'all .12s'
               }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: active ? '#185FA5' : '#ddd', flexShrink: 0, display: 'block'
-                }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? '#185FA5' : '#e0e0e0', flexShrink: 0 }} />
                 {n.label}
               </div>
             </Link>
@@ -58,15 +60,12 @@ export default function Sidebar() {
 
       <div style={{ padding: '12px 16px', borderTop: '0.5px solid #ebebeb' }}>
         {usuario && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a' }}>{usuario.nombre}</div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 500 }}>{usuario.nombre}</div>
             <div style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>{usuario.rol}</div>
           </div>
         )}
-        <button onClick={handleLogout} style={{
-          fontSize: 11, color: '#aaa', background: 'none', border: 'none',
-          cursor: 'pointer', padding: 0
-        }}>
+        <button onClick={() => { logout(); router.push('/login') }} style={{ fontSize: 11, color: '#bbb', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
           Cerrar sesión
         </button>
       </div>

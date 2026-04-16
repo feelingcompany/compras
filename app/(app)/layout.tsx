@@ -17,7 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
-      <main style={{ flex: 1, marginLeft: 200, overflowY: 'auto', background: '#f5f5f3' }}>
+      <main style={{ flex: 1, marginLeft: 210, overflowY: 'auto', background: '#f5f5f3' }}>
         {children}
       </main>
     </div>
