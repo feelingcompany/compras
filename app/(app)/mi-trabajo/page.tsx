@@ -616,17 +616,16 @@ export default function MiTrabajoPage() {
       {/* Empty State */}
       {aprobaciones.length === 0 && alertas.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{ fontSize: '4rem', marginBottom: 'var(--space-4)' }}>🎉</div>
           <div style={{
-            fontSize: 'var(--text-xl)',
+            fontSize: 'var(--text-2xl)',
             fontWeight: 'var(--font-semibold)',
             color: 'var(--gray-900)',
             marginBottom: 'var(--space-2)'
           }}>
-            ¡Inbox Vacío!
+            Inbox Vacío
           </div>
-          <div style={{ color: 'var(--gray-500)' }}>
-            No tenés pendientes urgentes. Buen trabajo.
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--gray-500)' }}>
+            No tenés pendientes urgentes.
           </div>
         </div>
       )}

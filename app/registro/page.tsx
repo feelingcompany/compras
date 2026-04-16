@@ -300,7 +300,7 @@ export default function RegistroPage() {
                   <span className="loading" style={{ width: '1rem', height: '1rem' }}></span>
                   Enviando...
                 </span>
-              ) : '✓ Solicitar Acceso'}
+              ) : 'Solicitar Acceso'}
             </button>
           </form>
           
@@ -347,26 +347,14 @@ export default function RegistroPage() {
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--space-2)',
-            listStyle: 'none',
-            padding: 0,
+            listStyle: 'disc',
+            paddingLeft: 'var(--space-6)',
             margin: 0
           }}>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--primary-600)' }}>✓</span>
-              <span>Tu solicitud será revisada por un administrador</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--primary-600)' }}>✓</span>
-              <span>Recibirás un email cuando sea aprobada</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--primary-600)' }}>✓</span>
-              <span>Podrás ingresar usando tu email y PIN</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--primary-600)' }}>✓</span>
-              <span>Crear solicitudes de compra para tus proyectos</span>
-            </li>
+            <li>Tu solicitud será revisada por un administrador</li>
+            <li>Recibirás un email cuando sea aprobada</li>
+            <li>Podrás ingresar usando tu email y PIN</li>
+            <li>Crear solicitudes de compra para tus proyectos</li>
           </ul>
         </div>
       </div>

@@ -142,7 +142,7 @@ export default function ProveedoresDashboardPage() {
               color: 'var(--gray-900)',
               marginBottom: 'var(--space-1)'
             }}>
-              🏪 Portal de Proveedores
+              Portal de Proveedores
             </h1>
             <p style={{
               fontSize: 'var(--text-sm)',
@@ -217,9 +217,9 @@ export default function ProveedoresDashboardPage() {
         <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
           <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {[
-              { value: 'todas', label: '📊 Todas las OFs' },
-              { value: 'pendientes', label: '⏳ Pendientes de Entregar' },
-              { value: 'entregadas', label: '✅ Entregadas' }
+              { value: 'todas', label: 'Todas las OFs' },
+              { value: 'pendientes', label: 'Pendientes de Entregar' },
+              { value: 'entregadas', label: 'Entregadas' }
             ].map(f => (
               <button
                 key={f.value}
@@ -252,7 +252,6 @@ export default function ProveedoresDashboardPage() {
               padding: 'var(--space-12)',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>📭</div>
               <div style={{
                 fontSize: 'var(--text-lg)',
                 fontWeight: 'var(--font-semibold)',
@@ -314,7 +313,7 @@ export default function ProveedoresDashboardPage() {
                             onClick={() => actualizarEstado(of.id, 'recibida')}
                             className="btn btn-success btn-sm"
                           >
-                            ✓ Marcar Entregada
+                            Marcar Entregada
                           </button>
                         )}
                       </td>

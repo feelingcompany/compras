@@ -87,9 +87,12 @@ export default function ProveedoresLoginPage() {
               justifyContent: 'center',
               marginBottom: 'var(--space-4)',
               boxShadow: 'var(--shadow-lg)',
-              fontSize: '2.5rem'
+              fontSize: '2rem',
+              fontWeight: 'var(--font-bold)',
+              color: 'white',
+              letterSpacing: '-0.05em'
             }}>
-              🏪
+              PR
             </div>
             
             <h1 style={{
@@ -204,30 +207,15 @@ export default function ProveedoresLoginPage() {
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--space-2)',
-            listStyle: 'none',
-            padding: 0,
+            listStyle: 'disc',
+            paddingLeft: 'var(--space-6)',
             margin: 0
           }}>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--success-600)' }}>✓</span>
-              <span>Ver tus Órdenes de Facturación</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--success-600)' }}>✓</span>
-              <span>Actualizar estados de entregas</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--success-600)' }}>✓</span>
-              <span>Subir facturas</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--success-600)' }}>✓</span>
-              <span>Ver tu calificación y estadísticas</span>
-            </li>
-            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--success-600)' }}>✓</span>
-              <span>Comunicarte con el equipo de Compras</span>
-            </li>
+            <li>Ver tus Órdenes de Facturación</li>
+            <li>Actualizar estados de entregas</li>
+            <li>Subir facturas</li>
+            <li>Ver tu calificación y estadísticas</li>
+            <li>Comunicarte con el equipo de Compras</li>
           </ul>
         </div>
         
