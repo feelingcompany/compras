@@ -7,6 +7,7 @@ export type Modulo =
   | 'solicitudes'
   | 'nueva-of'
   | 'cotizaciones'
+  | 'aprobaciones'
   | 'auditoria'
   | 'radicacion'
   | 'pagos'
@@ -33,6 +34,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
       'solicitudes',
       'nueva-of',
       'cotizaciones',
+      'aprobaciones',
       'auditoria',
       'radicacion',
       'pagos',
@@ -61,6 +63,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
       'solicitudes',
       'nueva-of',
       'cotizaciones',
+      'aprobaciones',
       'auditoria',
       'ordenes',
       'proveedores',
@@ -83,6 +86,7 @@ const PERMISOS: Record<Rol, PermisoConfig> = {
       'solicitudes',
       'nueva-of',
       'cotizaciones',
+      'aprobaciones',
       'ordenes',
       'proveedores',
     ],

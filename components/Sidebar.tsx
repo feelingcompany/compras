@@ -12,6 +12,7 @@ const NAV = [
   { id: 'solicitudes',  label: '1. Solicitudes',      path: '/solicitudes',   modulo: 'solicitudes' as Modulo },
   { id: 'nueva',        label: '3. Nueva OF',         path: '/nueva-of',      modulo: 'nueva-of' as Modulo },
   { id: 'cotizaciones', label: '↳ Cotizaciones',      path: '/cotizaciones',  modulo: 'cotizaciones' as Modulo },
+  { id: 'aprobaciones', label: '✓ Aprobaciones',      path: '/aprobaciones',  modulo: 'aprobaciones' as Modulo },
   { id: 'auditoria',    label: '4. Auditoría',        path: '/auditoria',     modulo: 'auditoria' as Modulo },
   { id: 'radicacion',   label: '8. Radicación',       path: '/radicacion',    modulo: 'radicacion' as Modulo },
   { id: 'pagos',        label: '9. Pagos',            path: '/pagos',         modulo: 'pagos' as Modulo },
