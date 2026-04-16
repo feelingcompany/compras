@@ -64,85 +64,186 @@ export default function ProveedoresLoginPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-block bg-purple-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold mb-4">
-            🏪
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Portal de Proveedores</h1>
-          <p className="text-sm text-gray-500 mt-2">Feeling Company - Sistema de Compras</p>
-        </div>
-        
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
-        )}
-        
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="proveedor@empresa.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              required
-            />
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 'var(--space-6)'
+    }}>
+      <div style={{ maxWidth: '28rem', width: '100%' }}>
+        {/* Card Principal */}
+        <div className="card" style={{ padding: 'var(--space-8)' }}>
+          {/* Logo y Header */}
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: 'var(--radius-xl)',
+              background: 'linear-gradient(135deg, var(--success-600), var(--success-700))',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 'var(--space-4)',
+              boxShadow: 'var(--shadow-lg)',
+              fontSize: '2.5rem'
+            }}>
+              🏪
+            </div>
+            
+            <h1 style={{
+              fontSize: 'var(--text-3xl)',
+              fontWeight: 'var(--font-bold)',
+              color: 'var(--gray-900)',
+              marginBottom: 'var(--space-2)'
+            }}>
+              Portal de Proveedores
+            </h1>
+            
+            <p style={{
+              fontSize: 'var(--text-sm)',
+              color: 'var(--gray-500)'
+            }}>
+              Feeling Company • Sistema de Compras
+            </p>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              required
-            />
-          </div>
+          {/* Error Alert */}
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: 'var(--space-6)' }}>
+              <strong style={{ display: 'block', marginBottom: 'var(--space-1)' }}>Error</strong>
+              {error}
+            </div>
+          )}
           
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
-        
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            ¿Problemas para acceder?{' '}
-            <a href="mailto:compras@feelingcompany.com" className="text-purple-600 hover:text-purple-700 font-medium">
-              Contactá a Compras
-            </a>
-          </p>
+          {/* Form */}
+          <form onSubmit={handleLogin} style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-5)'
+          }}>
+            <div>
+              <label className="label">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="proveedor@empresa.com"
+                className="input"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="label">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="input"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-success btn-lg"
+              style={{ width: '100%', marginTop: 'var(--space-2)' }}
+            >
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span className="loading" style={{ width: '1rem', height: '1rem' }}></span>
+                  Ingresando...
+                </span>
+              ) : '→ Ingresar al Portal'}
+            </button>
+          </form>
+          
+          {/* Contacto */}
+          <div style={{
+            marginTop: 'var(--space-6)',
+            paddingTop: 'var(--space-6)',
+            borderTop: '1px solid var(--gray-200)',
+            textAlign: 'center'
+          }}>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--gray-600)' }}>
+              ¿Problemas para acceder?{' '}
+              <a
+                href="mailto:compras@feelingcompany.com"
+                style={{
+                  color: 'var(--success-600)',
+                  fontWeight: 'var(--font-medium)',
+                  textDecoration: 'none'
+                }}
+              >
+                Contactá a Compras
+              </a>
+            </p>
+          </div>
         </div>
         
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Portal de Proveedores</h3>
-          <ul className="text-xs text-gray-600 space-y-1">
-            <li>• Ver tus Órdenes de Facturación</li>
-            <li>• Actualizar estados de entregas</li>
-            <li>• Subir facturas</li>
-            <li>• Ver tu calificación y estadísticas</li>
-            <li>• Comunicarte con el equipo de Compras</li>
+        {/* Info Card */}
+        <div className="card" style={{
+          marginTop: 'var(--space-4)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)'
+        }}>
+          <h3 style={{
+            fontSize: 'var(--text-base)',
+            fontWeight: 'var(--font-semibold)',
+            color: 'var(--gray-900)',
+            marginBottom: 'var(--space-3)'
+          }}>
+            Portal de Proveedores
+          </h3>
+          <ul style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--gray-600)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+            listStyle: 'none',
+            padding: 0,
+            margin: 0
+          }}>
+            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--success-600)' }}>✓</span>
+              <span>Ver tus Órdenes de Facturación</span>
+            </li>
+            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--success-600)' }}>✓</span>
+              <span>Actualizar estados de entregas</span>
+            </li>
+            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--success-600)' }}>✓</span>
+              <span>Subir facturas</span>
+            </li>
+            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--success-600)' }}>✓</span>
+              <span>Ver tu calificación y estadísticas</span>
+            </li>
+            <li style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--success-600)' }}>✓</span>
+              <span>Comunicarte con el equipo de Compras</span>
+            </li>
           </ul>
         </div>
         
-        <div className="mt-6 text-center">
+        {/* Volver */}
+        <div style={{ marginTop: 'var(--space-6)', textAlign: 'center' }}>
           <button
+            type="button"
             onClick={() => router.push('/login')}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            style={{
+              fontSize: 'var(--text-sm)',
+              color: 'rgba(255, 255, 255, 0.8)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              textDecoration: 'none'
+            }}
           >
             ← Volver al login de empleados
           </button>
