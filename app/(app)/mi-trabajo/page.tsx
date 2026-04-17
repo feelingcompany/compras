@@ -192,7 +192,7 @@ export default function MiTrabajoPage() {
     }
     
     setProcessing(false)
-    alert(`✅ ${selectedItems.size} OFs aprobadas`)
+    alert(`${selectedItems.size} OFs aprobadas exitosamente`)
   }
   
   const toggleSelection = (id: string) => {
@@ -242,7 +242,7 @@ export default function MiTrabajoPage() {
           color: 'var(--gray-900)',
           marginBottom: 'var(--space-2)'
         }}>
-          ⚡ Mi Trabajo — Command Center
+          Mi Trabajo — Command Center
         </h1>
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--gray-500)' }}>
           Centro de control para {usuario?.nombre}
@@ -269,7 +269,7 @@ export default function MiTrabajoPage() {
         <div className="stat-card">
           <div className="stat-label">Tiempo Promedio</div>
           <div className="stat-value" style={{ color: 'var(--info-600)' }}>{stats.tiempoPromedioAprobacion}d</div>
-          <div className="stat-description">Meta: &lt;3 días ✅</div>
+          <div className="stat-description">Meta: &lt;3 días</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Ahorros del Mes</div>
@@ -291,9 +291,9 @@ export default function MiTrabajoPage() {
         }}>
           <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {[
-              { value: 'urgente', label: '🔴 Urgente' },
-              { value: 'hoy', label: '📅 De Hoy' },
-              { value: 'todas', label: '📊 Todas' }
+              { value: 'urgente', label: 'Urgente' },
+              { value: 'hoy', label: 'De Hoy' },
+              { value: 'todas', label: 'Todas' }
             ].map(f => (
               <button
                 key={f.value}
@@ -315,7 +315,7 @@ export default function MiTrabajoPage() {
                 disabled={processing}
                 className="btn btn-success"
               >
-                ✅ Aprobar Seleccionadas
+                Aprobar Seleccionadas
               </button>
             </div>
           )}
@@ -331,7 +331,7 @@ export default function MiTrabajoPage() {
             color: 'var(--gray-900)',
             marginBottom: 'var(--space-4)'
           }}>
-            ⚡ {filtro === 'urgente' ? 'URGENTE HOY' : 'Aprobaciones Pendientes'} ({aprobaciones.length})
+            {filtro === 'urgente' ? 'URGENTE HOY' : 'Aprobaciones Pendientes'} ({aprobaciones.length})
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {aprobaciones.map(aprobacion => {
@@ -464,20 +464,20 @@ export default function MiTrabajoPage() {
                           disabled={processing}
                           className="btn btn-success"
                         >
-                          ✅ Aprobar
+                          Aprobar
                         </button>
                         <button
                           onClick={() => rechazarOf(aprobacion.id)}
                           disabled={processing}
                           className="btn btn-error"
                         >
-                          ❌ Rechazar
+                          Rechazar
                         </button>
                         <button
                           onClick={() => setQuickView(of)}
                           className="btn btn-secondary"
                         >
-                          👁️ Ver Detalles
+                          Ver Detalles
                         </button>
                       </div>
                     </div>
@@ -498,7 +498,7 @@ export default function MiTrabajoPage() {
             color: 'var(--gray-900)',
             marginBottom: 'var(--space-4)'
           }}>
-            🔴 Alertas Críticas ({alertas.length})
+            Alertas Críticas ({alertas.length})
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {alertas.map(alerta => (
