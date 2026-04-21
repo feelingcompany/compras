@@ -6,20 +6,20 @@ import { useAuth } from '@/lib/auth'
 
 // Categorías de Feeling Company
 const CATEGORIAS = [
-  { value: 'talento-artistas', label: '🎭 Talento y Artistas', emoji: '🎭' },
-  { value: 'produccion-grafica', label: '🎨 Producción Gráfica y Audiovisual', emoji: '🎨' },
-  { value: 'logistica-transporte', label: '🚚 Logística y Transporte', emoji: '🚚' },
-  { value: 'alimentacion-catering', label: '🍽️ Alimentación y Catering', emoji: '🍽️' },
-  { value: 'servicios-tecnicos', label: '🎵 Servicios Técnicos', emoji: '🎵' },
-  { value: 'infraestructura-montaje', label: '🏗️ Infraestructura y Montaje', emoji: '🏗️' },
-  { value: 'servicios-profesionales', label: '👔 Servicios Profesionales', emoji: '👔' },
-  { value: 'materiales-insumos', label: '📦 Materiales e Insumos', emoji: '📦' },
-  { value: 'alquileres', label: '🔧 Alquileres', emoji: '🔧' },
-  { value: 'servicios-soporte', label: '🛡️ Servicios de Soporte', emoji: '🛡️' },
-  { value: 'tecnologia-equipos', label: '💻 Tecnología y Equipos', emoji: '💻' },
-  { value: 'hospedaje-viaticos', label: '✈️ Hospedaje y Viáticos', emoji: '✈️' },
-  { value: 'publicidad-medios', label: '📢 Publicidad y Medios', emoji: '📢' },
-  { value: 'permisos-tramites', label: '📋 Permisos y Trámites', emoji: '📋' },
+  { value: 'talento-artistas', label: 'Talento y Artistas' },
+  { value: 'produccion-grafica', label: 'Producción Gráfica y Audiovisual' },
+  { value: 'logistica-transporte', label: 'Logística y Transporte' },
+  { value: 'alimentacion-catering', label: 'Alimentación y Catering' },
+  { value: 'servicios-tecnicos', label: 'Servicios Técnicos' },
+  { value: 'infraestructura-montaje', label: 'Infraestructura y Montaje' },
+  { value: 'servicios-profesionales', label: 'Servicios Profesionales' },
+  { value: 'materiales-insumos', label: 'Materiales e Insumos' },
+  { value: 'alquileres', label: 'Alquileres' },
+  { value: 'servicios-soporte', label: 'Servicios de Soporte' },
+  { value: 'tecnologia-equipos', label: 'Tecnología y Equipos' },
+  { value: 'hospedaje-viaticos', label: 'Hospedaje y Viáticos' },
+  { value: 'publicidad-medios', label: 'Publicidad y Medios' },
+  { value: 'permisos-tramites', label: 'Permisos y Trámites' },
 ]
 
 const UNIDADES = [
@@ -93,7 +93,7 @@ export default function NuevaSolicitudPage() {
   
   // Eliminar ítem
   const eliminarItem = (id: string) => {
-    if (items.length === 1) return // Mantener al menos un ítem
+    if (items.length === 1) return
     setItems(items.filter(item => item.id !== id))
   }
   
@@ -106,35 +106,15 @@ export default function NuevaSolicitudPage() {
   
   // Validar formulario
   const validar = () => {
-    if (!centroCosto) {
-      alert('Seleccioná un Centro de Costo')
-      return false
-    }
-    if (!ciudad) {
-      alert('Seleccioná una Ciudad')
-      return false
-    }
-    if (!fechaRequerida) {
-      alert('Seleccioná la Fecha Requerida')
-      return false
-    }
-    if (!justificacion.trim()) {
-      alert('Ingresá una Justificación')
+    if (!centroCosto || !ciudad || !fechaRequerida || !justificacion) {
+      alert('Por favor completá todos los campos requeridos en Información General')
       return false
     }
     
-    // Validar ítems
-    for (let item of items) {
-      if (!item.categoria) {
-        alert('Todos los ítems deben tener Categoría')
-        return false
-      }
-      if (!item.descripcion.trim()) {
-        alert('Todos los ítems deben tener Descripción')
-        return false
-      }
-      if (item.cantidad <= 0) {
-        alert('La Cantidad debe ser mayor a 0')
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (!item.categoria || !item.descripcion || !item.cantidad || !item.unidad) {
+        alert(`Por favor completá todos los campos requeridos en el Ítem #${i + 1}`)
         return false
       }
     }
@@ -160,7 +140,7 @@ export default function NuevaSolicitudPage() {
           ciudad,
           fecha_requerida: fechaRequerida,
           prioridad,
-          descripcion: justificacion, // Mantenemos el campo por compatibilidad
+          descripcion: justificacion,
           observaciones,
           estado: 'pendiente'
         })
@@ -186,7 +166,7 @@ export default function NuevaSolicitudPage() {
       
       if (errorItems) throw errorItems
       
-      alert('✅ Solicitud creada exitosamente')
+      alert('Solicitud creada exitosamente')
       router.push('/solicitudes')
       
     } catch (error: any) {
@@ -198,25 +178,44 @@ export default function NuevaSolicitudPage() {
   }
   
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Nueva Solicitud de Compra</h1>
-        <p className="text-sm text-gray-500 mt-1">Completá todos los campos requeridos</p>
+    <div style={{ padding: 'var(--space-6)', maxWidth: '80rem', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <h1 style={{
+          fontSize: 'var(--text-3xl)',
+          fontWeight: 'var(--font-bold)',
+          color: 'var(--gray-900)',
+          marginBottom: 'var(--space-2)'
+        }}>
+          Nueva Solicitud de Compra
+        </h1>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--gray-500)' }}>
+          Completá todos los campos requeridos
+        </p>
       </div>
       
       {/* 1. INFORMACIÓN GENERAL */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">1. Información General</h2>
+      <div className="card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+        <h2 style={{
+          fontSize: 'var(--text-lg)',
+          fontWeight: 'var(--font-semibold)',
+          color: 'var(--gray-900)',
+          marginBottom: 'var(--space-4)'
+        }}>
+          1. Información General
+        </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: 'var(--space-4)'
+        }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Centro de Costo <span className="text-red-500">*</span>
-            </label>
+            <label className="label label-required">Centro de Costo</label>
             <select
               value={centroCosto}
               onChange={(e) => setCentroCosto(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input"
             >
               <option value="">Seleccioná...</option>
               {CENTROS_COSTO.map(cc => (
@@ -226,26 +225,22 @@ export default function NuevaSolicitudPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              OT/OS <span className="text-gray-400">(Opcional)</span>
-            </label>
+            <label className="label">OT/OS (Opcional)</label>
             <input
               type="text"
               value={otOs}
               onChange={(e) => setOtOs(e.target.value)}
               placeholder="Ej: SOCSM00126"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ciudad <span className="text-red-500">*</span>
-            </label>
+            <label className="label label-required">Ciudad</label>
             <select
               value={ciudad}
               onChange={(e) => setCiudad(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input"
             >
               <option value="">Seleccioná...</option>
               {CIUDADES.map(c => (
@@ -255,42 +250,39 @@ export default function NuevaSolicitudPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha Requerida <span className="text-red-500">*</span>
-            </label>
+            <label className="label label-required">Fecha Requerida</label>
             <input
               type="date"
               value={fechaRequerida}
               onChange={(e) => setFechaRequerida(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input"
             />
           </div>
         </div>
         
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Prioridad <span className="text-red-500">*</span>
-          </label>
-          <div className="flex gap-4">
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <label className="label label-required">Prioridad</label>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             {[
-              { value: 'normal', label: 'Normal', color: 'blue' },
-              { value: 'urgente', label: 'Urgente', color: 'orange' },
-              { value: 'critico', label: 'Crítico', color: 'red' }
+              { value: 'normal', label: 'Normal', className: 'badge-primary' },
+              { value: 'urgente', label: 'Urgente', className: 'badge-warning' },
+              { value: 'critico', label: 'Crítico', className: 'badge-error' }
             ].map(p => (
-              <label key={p.value} className="flex items-center cursor-pointer">
+              <label key={p.value} style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                gap: 'var(--space-2)'
+              }}>
                 <input
                   type="radio"
                   name="prioridad"
                   value={p.value}
                   checked={prioridad === p.value}
                   onChange={(e) => setPrioridad(e.target.value)}
-                  className="mr-2"
+                  style={{ cursor: 'pointer' }}
                 />
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  prioridad === p.value
-                    ? `bg-${p.color}-100 text-${p.color}-800 border-2 border-${p.color}-500`
-                    : 'bg-gray-100 text-gray-600 border-2 border-transparent'
-                }`}>
+                <span className={`badge ${p.className}`}>
                   {p.label}
                 </span>
               </label>
@@ -298,56 +290,89 @@ export default function NuevaSolicitudPage() {
           </div>
         </div>
         
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Justificación <span className="text-red-500">*</span>
-          </label>
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <label className="label label-required">Justificación</label>
           <textarea
             value={justificacion}
             onChange={(e) => setJustificacion(e.target.value)}
             placeholder="¿Para qué proyecto o evento es esta solicitud?"
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="input"
+            style={{ resize: 'vertical' }}
           />
         </div>
       </div>
       
       {/* 2. ÍTEMS SOLICITADOS */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">2. Ítems Solicitados</h2>
+      <div className="card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 'var(--space-4)',
+          flexWrap: 'wrap',
+          gap: 'var(--space-3)'
+        }}>
+          <h2 style={{
+            fontSize: 'var(--text-lg)',
+            fontWeight: 'var(--font-semibold)',
+            color: 'var(--gray-900)'
+          }}>
+            2. Ítems Solicitados
+          </h2>
           <button
             onClick={agregarItem}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+            className="btn btn-success"
           >
             + Agregar Ítem
           </button>
         </div>
         
-        <div className="space-y-6">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {items.map((item, index) => (
-            <div key={item.id} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="font-semibold text-gray-900">Ítem #{index + 1}</h3>
+            <div
+              key={item.id}
+              style={{
+                border: '1px solid var(--gray-300)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-4)',
+                background: 'var(--gray-50)'
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'start',
+                marginBottom: 'var(--space-4)'
+              }}>
+                <h3 style={{
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 'var(--font-semibold)',
+                  color: 'var(--gray-900)'
+                }}>
+                  Ítem #{index + 1}
+                </h3>
                 {items.length > 1 && (
                   <button
                     onClick={() => eliminarItem(item.id)}
-                    className="text-red-600 hover:text-red-800 text-sm font-medium"
+                    className="btn btn-error btn-sm"
                   >
-                    ❌ Eliminar
+                    Eliminar
                   </button>
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Categoría <span className="text-red-500">*</span>
-                  </label>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: 'var(--space-4)'
+              }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="label label-required">Categoría</label>
                   <select
                     value={item.categoria}
                     onChange={(e) => actualizarItem(item.id, 'categoria', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   >
                     <option value="">Seleccioná una categoría...</option>
                     {CATEGORIAS.map(cat => (
@@ -358,41 +383,35 @@ export default function NuevaSolicitudPage() {
                   </select>
                 </div>
                 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descripción <span className="text-red-500">*</span>
-                  </label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="label label-required">Descripción</label>
                   <input
                     type="text"
                     value={item.descripcion}
                     onChange={(e) => actualizarItem(item.id, 'descripcion', e.target.value)}
                     placeholder="Ej: Grupo musical tropical 4 horas"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cantidad <span className="text-red-500">*</span>
-                  </label>
+                  <label className="label label-required">Cantidad</label>
                   <input
                     type="number"
                     value={item.cantidad}
                     onChange={(e) => actualizarItem(item.id, 'cantidad', parseFloat(e.target.value) || 1)}
                     min="0.01"
                     step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unidad <span className="text-red-500">*</span>
-                  </label>
+                  <label className="label label-required">Unidad</label>
                   <select
                     value={item.unidad}
                     onChange={(e) => actualizarItem(item.id, 'unidad', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   >
                     {UNIDADES.map(u => (
                       <option key={u} value={u}>{u}</option>
@@ -400,30 +419,27 @@ export default function NuevaSolicitudPage() {
                   </select>
                 </div>
                 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Especificaciones <span className="text-gray-400">(Opcional)</span>
-                  </label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="label">Especificaciones (Opcional)</label>
                   <textarea
                     value={item.especificaciones}
                     onChange={(e) => actualizarItem(item.id, 'especificaciones', e.target.value)}
                     placeholder="Marca, modelo, características técnicas, rider, etc."
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
+                    style={{ resize: 'vertical' }}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Presupuesto Estimado <span className="text-gray-400">(Opcional)</span>
-                  </label>
+                  <label className="label">Presupuesto Estimado (Opcional)</label>
                   <input
                     type="number"
                     value={item.presupuesto_estimado}
                     onChange={(e) => actualizarItem(item.id, 'presupuesto_estimado', e.target.value)}
                     placeholder="0"
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
               </div>
@@ -433,29 +449,42 @@ export default function NuevaSolicitudPage() {
       </div>
       
       {/* 3. OBSERVACIONES */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">3. Observaciones Adicionales</h2>
+      <div className="card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+        <h2 style={{
+          fontSize: 'var(--text-lg)',
+          fontWeight: 'var(--font-semibold)',
+          color: 'var(--gray-900)',
+          marginBottom: 'var(--space-4)'
+        }}>
+          3. Observaciones Adicionales
+        </h2>
         <textarea
           value={observaciones}
           onChange={(e) => setObservaciones(e.target.value)}
           placeholder="Comentarios adicionales, requerimientos especiales, etc. (opcional)"
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="input"
+          style={{ resize: 'vertical' }}
         />
       </div>
       
       {/* BOTONES */}
-      <div className="flex justify-end gap-3">
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: 'var(--space-3)',
+        flexWrap: 'wrap'
+      }}>
         <button
           onClick={() => router.push('/solicitudes')}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          className="btn btn-secondary"
         >
           Cancelar
         </button>
         <button
           onClick={enviar}
           disabled={loading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-primary"
         >
           {loading ? 'Enviando...' : 'Enviar Solicitud'}
         </button>
