@@ -166,6 +166,60 @@ export default function NuevaSolicitudPage() {
       
       if (errorItems) throw errorItems
       
+      // 3. CREAR APROBACIONES AUTOMÁTICAMENTE (fallback si el trigger no funciona)
+      const montoTotal = items.reduce((sum, item) => 
+        sum + (parseFloat(item.presupuesto_estimado) || 0), 0
+      )
+      
+      // Buscar reglas aplicables
+      const { data: reglas } = await supabase
+        .from('reglas_aprobacion')
+        .select('*')
+        .eq('activo', true)
+        .order('nivel_aprobacion')
+      
+      if (reglas && reglas.length > 0) {
+        // Verificar si ya existen aprobaciones (el trigger pudo haber funcionado)
+        const { data: aprobacionesExistentes } = await supabase
+          .from('aprobaciones')
+          .select('id')
+          .eq('solicitud_id', solicitud.id)
+        
+        if (!aprobacionesExistentes || aprobacionesExistentes.length === 0) {
+          // El trigger NO se ejecutó, crear desde el cliente
+          const reglasAplicables = reglas.filter(r => 
+            montoTotal >= r.monto_minimo && 
+            (r.monto_maximo === null || montoTotal <= r.monto_maximo)
+          )
+          
+          let orden = 1
+          for (const regla of reglasAplicables) {
+            // Buscar usuario con ese rol
+            const { data: aprobador } = await supabase
+              .from('usuarios')
+              .select('id')
+              .eq('rol', regla.rol_aprobador)
+              .eq('activo', true)
+              .order('created_at')
+              .limit(1)
+              .maybeSingle()
+            
+            if (aprobador) {
+              await supabase.from('aprobaciones').insert({
+                solicitud_id: solicitud.id,
+                aprobador_id: aprobador.id,
+                nivel_aprobacion: regla.nivel_aprobacion,
+                orden_aprobacion: orden,
+                estado: 'pendiente',
+                fecha_limite: new Date(Date.now() + 3*24*60*60*1000).toISOString(),
+                comentarios: regla.descripcion
+              })
+              orden++
+            }
+          }
+        }
+      }
+      
       alert('Solicitud creada exitosamente')
       router.push('/solicitudes')
       
