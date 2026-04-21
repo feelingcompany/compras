@@ -1,208 +1,347 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth'
-
-const inputStyle = { width: '100%', padding: '8px 10px', border: '0.5px solid #d3d1c7', borderRadius: 8, fontSize: 13, background: '#fafafa', outline: 'none' }
-const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4, display: 'block' }
-
-const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
-  PENDIENTE:   { bg: '#FAEEDA', color: '#633806' },
-  EN_PROCESO:  { bg: '#E6F1FB', color: '#0C447C' },
-  COMPLETADA:  { bg: '#EAF3DE', color: '#27500A' },
-  RECHAZADA:   { bg: '#FCEBEB', color: '#791F1F' },
-}
 
 export default function SolicitudesPage() {
   const { usuario } = useAuth()
-  const [solicitudes, setSolicitudes] = useState<any[]>([])
-  const [ots, setOts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
-  const [form, setForm] = useState({
-    ot_id: '', descripcion: '', monto_estimado: '',
-    medio_pago_sugerido: 'TRANSFERENCIA', ciudad: 'Bogotá', plazo_pago: 'Inmediato'
+  const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos')
+  const [busqueda, setBusqueda] = useState('')
+
+  useEffect(() => {
+    if (!usuario) {
+      router.push('/login')
+      return
+    }
+    cargar()
+  }, [usuario])
+
+  const cargar = async () => {
+    if (!usuario) return
+
+    try {
+      // 1. Cargar solicitudes (filtradas por rol)
+      let query = supabase
+        .from('solicitudes')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      // Solicitante solo ve las suyas
+      if (usuario.rol === 'solicitante') {
+        query = query.eq('solicitante_id', usuario.id)
+      }
+
+      const { data: solicitudesData, error } = await query
+
+      if (error) {
+        console.error('Error:', error)
+        setLoading(false)
+        return
+      }
+
+      if (!solicitudesData || solicitudesData.length === 0) {
+        setSolicitudes([])
+        setLoading(false)
+        return
+      }
+
+      // 2. Cargar datos relacionados en paralelo
+      const solicitudIds = solicitudesData.map(s => s.id)
+      const solicitanteIds = [...new Set(solicitudesData.map(s => s.solicitante_id))]
+
+      const [
+        { data: solicitantes },
+        { data: items },
+        { data: aprobaciones }
+      ] = await Promise.all([
+        supabase.from('usuarios').select('id, nombre, email').in('id', solicitanteIds),
+        supabase.from('items_solicitud').select('*').in('solicitud_id', solicitudIds),
+        supabase.from('aprobaciones').select('*').in('solicitud_id', solicitudIds)
+      ])
+
+      // 3. Armar estructura
+      const enriched = solicitudesData.map(s => {
+        const solicitante = (solicitantes || []).find(u => u.id === s.solicitante_id)
+        const solItems = (items || []).filter(i => i.solicitud_id === s.id)
+        const solAprobaciones = (aprobaciones || []).filter(a => a.solicitud_id === s.id)
+        const monto = solItems.reduce((sum, i) => sum + (parseFloat(i.presupuesto_estimado) || 0), 0)
+
+        return {
+          ...s,
+          solicitante,
+          items: solItems,
+          aprobaciones: solAprobaciones,
+          monto_total: monto
+        }
+      })
+
+      setSolicitudes(enriched)
+      setLoading(false)
+    } catch (error) {
+      console.error('Error:', error)
+      setLoading(false)
+    }
+  }
+
+  const getEstadoBadge = (estado: string) => {
+    const config: Record<string, { bg: string; color: string; label: string }> = {
+      pendiente:  { bg: '#FEF3C7', color: '#92400E', label: 'Pendiente de aprobación' },
+      aprobada:   { bg: '#D1FAE5', color: '#065F46', label: 'Aprobada' },
+      rechazada:  { bg: '#FEE2E2', color: '#991B1B', label: 'Rechazada' },
+      cotizando:  { bg: '#DBEAFE', color: '#1E40AF', label: 'En cotización' },
+      ordenada:   { bg: '#E0E7FF', color: '#3730A3', label: 'Orden emitida' },
+      completada: { bg: '#F3F4F6', color: '#374151', label: 'Completada' },
+    }
+    const c = config[estado?.toLowerCase()] || config.pendiente
+    return (
+      <span style={{
+        padding: '3px 9px', borderRadius: 3, fontSize: 10,
+        fontWeight: 600, background: c.bg, color: c.color,
+        whiteSpace: 'nowrap'
+      }}>
+        {c.label}
+      </span>
+    )
+  }
+
+  const getPrioridadBadge = (prioridad: string) => {
+    if (!prioridad || prioridad === 'normal') return null
+    const config: Record<string, { color: string; label: string }> = {
+      urgente:  { color: '#F59E0B', label: 'Urgente' },
+      critico:  { color: '#EF4444', label: 'Crítica' },
+    }
+    const c = config[prioridad?.toLowerCase()]
+    if (!c) return null
+    return (
+      <span style={{
+        padding: '2px 7px', borderRadius: 3, fontSize: 10,
+        fontWeight: 600, background: c.color + '20', color: c.color,
+        textTransform: 'uppercase'
+      }}>
+        {c.label}
+      </span>
+    )
+  }
+
+  const solicitudesFiltradas = solicitudes.filter(s => {
+    if (filtroEstado !== 'todos' && s.estado?.toLowerCase() !== filtroEstado) return false
+    if (busqueda) {
+      const q = busqueda.toLowerCase()
+      return (
+        s.descripcion?.toLowerCase().includes(q) ||
+        s.centro_costo?.toLowerCase().includes(q) ||
+        s.solicitante?.nombre?.toLowerCase().includes(q) ||
+        s.ot_os?.toLowerCase().includes(q)
+      )
+    }
+    return true
   })
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
-    const [{ data: sols }, { data: otList }] = await Promise.all([
-      supabase.from('solicitudes')
-        .select('*, ordenes_trabajo(codigo, proyecto, cliente), solicitante:usuarios!solicitante_id(nombre)')
-        .order('created_at', { ascending: false }),
-      supabase.from('ordenes_trabajo').select('*').eq('activo', true).order('codigo')
-    ])
-    setSolicitudes(sols || [])
-    setOts(otList || [])
-    setLoading(false)
+  const stats = {
+    total: solicitudes.length,
+    pendientes: solicitudes.filter(s => s.estado === 'pendiente').length,
+    aprobadas: solicitudes.filter(s => s.estado === 'aprobada').length,
+    montoTotal: solicitudes.reduce((sum, s) => sum + s.monto_total, 0)
   }
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    const { error } = await supabase.from('solicitudes').insert({
-      ...form,
-      monto_estimado: form.monto_estimado ? Number(form.monto_estimado.replace(/\D/g, '')) : null,
-      solicitante_id: usuario?.id,
-      estado: 'PENDIENTE'
-    })
-    if (!error) {
-      setSuccess(true)
-      setShowForm(false)
-      setForm({ ot_id: '', descripcion: '', monto_estimado: '', medio_pago_sugerido: 'TRANSFERENCIA', ciudad: 'Bogotá', plazo_pago: 'Inmediato' })
-      await load()
-      setTimeout(() => setSuccess(false), 3000)
-    }
-    setSaving(false)
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+        Cargando solicitudes...
+      </div>
+    )
   }
-
-  const pendientes = solicitudes.filter(s => s.estado === 'PENDIENTE').length
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+    <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'flex-start', marginBottom: 24
+      }}>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 500 }}>Solicitudes de compra</div>
-          <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>Etapa 1 del proceso · El solicitante registra la necesidad</div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111', margin: 0, marginBottom: 4 }}>
+            Solicitudes de compra
+          </h1>
+          <div style={{ fontSize: 13, color: '#6b7280' }}>
+            {usuario?.rol === 'solicitante'
+              ? 'Tus solicitudes'
+              : 'Todas las solicitudes del sistema'}
+          </div>
         </div>
-        <button onClick={() => setShowForm(true)} style={{
-          padding: '8px 18px', background: '#185FA5', color: '#fff',
-          border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer'
-        }}>
+        <button
+          onClick={() => router.push('/solicitudes/nueva')}
+          style={{
+            padding: '10px 20px', background: '#185FA5', color: '#fff',
+            border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
           + Nueva solicitud
         </button>
       </div>
 
-      {success && (
-        <div style={{ padding: '10px 14px', background: '#EAF3DE', border: '0.5px solid #b7d9a0', borderRadius: 8, fontSize: 13, color: '#27500A', marginBottom: 16 }}>
-          ✓ Solicitud registrada — el líder de compras la verá en su bandeja
-        </div>
-      )}
-
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
-        {[
-          { l: 'Total solicitudes', v: solicitudes.length, c: '#1a1a1a' },
-          { l: 'Pendientes', v: pendientes, c: '#BA7517' },
-          { l: 'En proceso', v: solicitudes.filter(s => s.estado === 'EN_PROCESO').length, c: '#185FA5' },
-          { l: 'Completadas', v: solicitudes.filter(s => s.estado === 'COMPLETADA').length, c: '#27500A' },
-        ].map(s => (
-          <div key={s.l} style={{ background: '#fff', border: '0.5px solid #ebebeb', borderRadius: 12, padding: '12px 16px' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 5 }}>{s.l}</div>
-            <div style={{ fontSize: 22, fontWeight: 500, color: s.c }}>{s.v}</div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 12, marginBottom: 24
+      }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Total</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#111' }}>{stats.total}</div>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Pendientes</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#F59E0B' }}>{stats.pendientes}</div>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Aprobadas</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#10B981' }}>{stats.aprobadas}</div>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Monto total</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#185FA5' }}>
+            ${stats.montoTotal.toLocaleString('es-CO')}
           </div>
-        ))}
+        </div>
       </div>
 
-      {/* Tabla */}
-      <div style={{ background: '#fff', border: '0.5px solid #ebebeb', borderRadius: 12, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: 24, color: '#aaa', fontSize: 13 }}>Cargando solicitudes...</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Proyecto (OT)', 'Descripción', 'Monto estimado', 'Ciudad', 'Solicitante', 'Estado', 'Fecha'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, fontWeight: 600, color: '#999', borderBottom: '1px solid #f0f0f0', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {solicitudes.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 24, color: '#aaa', fontSize: 13, textAlign: 'center' }}>
-                  No hay solicitudes — crea la primera
-                </td></tr>
-              ) : solicitudes.map(s => {
-                const ec = ESTADO_COLORS[s.estado] || ESTADO_COLORS.PENDIENTE
-                return (
-                  <tr key={s.id}>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8' }}>
-                      <div style={{ fontSize: 12, fontWeight: 500 }}>{s.ordenes_trabajo?.proyecto || '—'}</div>
-                      <div style={{ fontSize: 11, color: '#aaa', fontFamily: 'monospace' }}>{s.ordenes_trabajo?.codigo}</div>
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8', fontSize: 13, maxWidth: 220 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.descripcion}</div>
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8', fontSize: 13 }}>
-                      {s.monto_estimado ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(s.monto_estimado) : '—'}
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8', fontSize: 13 }}>{s.ciudad}</td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8', fontSize: 13 }}>{s.solicitante?.nombre || '—'}</td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8' }}>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: ec.bg, color: ec.color }}>{s.estado}</span>
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #f8f8f8', fontSize: 11, color: '#aaa', fontFamily: 'monospace' }}>
-                      {new Date(s.created_at).toLocaleDateString('es-CO')}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
+      {/* Filtros y búsqueda */}
+      <div style={{
+        display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <input
+          type="text"
+          placeholder="Buscar por descripción, centro de costo, solicitante..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          style={{
+            flex: 1, minWidth: 250, padding: '8px 12px',
+            border: '1px solid #d1d5db', borderRadius: 4,
+            fontSize: 13, outline: 'none'
+          }}
+        />
+        <select
+          value={filtroEstado}
+          onChange={e => setFiltroEstado(e.target.value)}
+          style={{
+            padding: '8px 12px', border: '1px solid #d1d5db',
+            borderRadius: 4, fontSize: 13, background: '#fff',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="aprobada">Aprobadas</option>
+          <option value="rechazada">Rechazadas</option>
+          <option value="cotizando">En cotización</option>
+          <option value="completada">Completadas</option>
+        </select>
       </div>
 
-      {/* Modal nueva solicitud */}
-      {showForm && (
-        <div onClick={() => setShowForm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 28, width: 520, maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 20 }}>Nueva solicitud de compra</div>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Proyecto (OT)</label>
-                <select value={form.ot_id} onChange={e => set('ot_id', e.target.value)} required style={inputStyle}>
-                  <option value="">Seleccionar proyecto...</option>
-                  {ots.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.proyecto} ({o.cliente})</option>)}
-                </select>
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Descripción del pedido</label>
-                <textarea value={form.descripcion} onChange={e => set('descripcion', e.target.value)} required rows={3}
-                  placeholder="Describe qué necesitas, para qué y cuándo..." style={{ ...inputStyle, resize: 'vertical' }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                <div>
-                  <label style={labelStyle}>Monto estimado (COP)</label>
-                  <input value={form.monto_estimado} onChange={e => set('monto_estimado', e.target.value)} placeholder="Ej: 5000000" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Ciudad del evento</label>
-                  <input value={form.ciudad} onChange={e => set('ciudad', e.target.value)} style={inputStyle} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-                <div>
-                  <label style={labelStyle}>Medio de pago sugerido</label>
-                  <select value={form.medio_pago_sugerido} onChange={e => set('medio_pago_sugerido', e.target.value)} style={inputStyle}>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="EFECTIVO">Efectivo</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Plazo de pago</label>
-                  <select value={form.plazo_pago} onChange={e => set('plazo_pago', e.target.value)} style={inputStyle}>
-                    <option value="Inmediato">Inmediato</option>
-                    <option value="15 días">15 días</option>
-                    <option value="30 días">30 días</option>
-                    <option value="Contra entrega">Contra entrega</option>
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button type="button" onClick={() => setShowForm(false)} style={{ padding: '8px 18px', border: '0.5px solid #ddd', borderRadius: 8, background: 'transparent', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                <button type="submit" disabled={saving} style={{ padding: '8px 18px', background: saving ? '#aaa' : '#185FA5', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Guardando...' : 'Enviar solicitud'}
-                </button>
-              </div>
-            </form>
+      {/* Lista de solicitudes */}
+      {solicitudesFiltradas.length === 0 ? (
+        <div style={{
+          background: '#F9FAFB', border: '1px dashed #d1d5db',
+          padding: 48, borderRadius: 6, textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>
+            {solicitudes.length === 0
+              ? 'No hay solicitudes todavía'
+              : 'No hay solicitudes con estos filtros'}
           </div>
+          {solicitudes.length === 0 && (
+            <button
+              onClick={() => router.push('/solicitudes/nueva')}
+              style={{
+                marginTop: 12, padding: '8px 16px',
+                background: '#185FA5', color: '#fff',
+                border: 'none', borderRadius: 4, fontSize: 13,
+                cursor: 'pointer', fontWeight: 500
+              }}
+            >
+              Crear primera solicitud
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{
+          background: '#fff', border: '1px solid #e5e7eb',
+          borderRadius: 6, overflow: 'hidden'
+        }}>
+          {/* Table header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr 1fr 1fr 140px 100px',
+            padding: '10px 16px', background: '#F9FAFB',
+            borderBottom: '1px solid #e5e7eb',
+            fontSize: 11, fontWeight: 600, color: '#6b7280',
+            textTransform: 'uppercase', letterSpacing: '0.04em'
+          }}>
+            <div>Solicitud</div>
+            <div>Solicitante</div>
+            <div>Centro de costo</div>
+            <div>Fecha</div>
+            <div>Estado</div>
+            <div style={{ textAlign: 'right' }}>Monto</div>
+          </div>
+
+          {/* Rows */}
+          {solicitudesFiltradas.map(s => (
+            <div
+              key={s.id}
+              onClick={() => router.push(`/solicitudes/${s.id}`)}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 140px 100px',
+                padding: '14px 16px',
+                borderBottom: '1px solid #f3f4f6',
+                fontSize: 13, cursor: 'pointer',
+                alignItems: 'center',
+                transition: 'background 0.1s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              <div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
+                  {getPrioridadBadge(s.prioridad)}
+                  <span style={{ fontWeight: 500, color: '#111' }}>
+                    {s.descripcion || '(Sin descripción)'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  {s.items.length} ítem{s.items.length !== 1 ? 's' : ''}
+                  {s.ot_os && ` · ${s.ot_os}`}
+                  {s.ciudad && ` · ${s.ciudad}`}
+                </div>
+              </div>
+              <div style={{ color: '#374151' }}>
+                {s.solicitante?.nombre || '—'}
+              </div>
+              <div style={{ color: '#374151', fontSize: 12 }}>
+                {s.centro_costo || '—'}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: 12 }}>
+                {new Date(s.created_at).toLocaleDateString('es-CO', {
+                  day: '2-digit', month: 'short', year: '2-digit'
+                })}
+              </div>
+              <div>
+                {getEstadoBadge(s.estado)}
+              </div>
+              <div style={{ textAlign: 'right', fontWeight: 600, color: '#185FA5' }}>
+                ${s.monto_total.toLocaleString('es-CO')}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
