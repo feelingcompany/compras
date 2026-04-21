@@ -143,39 +143,40 @@ export default function DetalleSolicitudPage() {
     )
   }
 
-  // Timeline: etapas del proceso
-  const etapas = [
+  // Timeline: 4 FASES OFICIALES DEL PROCESO FEELING COMPANY
+  const fases = [
     {
-      key: 'creada',
-      label: 'Solicitud creada',
-      fecha: solicitud.created_at,
-      completada: true,
-      actor: solicitud.solicitante?.nombre
+      key: 'fase1',
+      numero: 1,
+      label: 'Activación y Convocatoria',
+      descripcion: 'Solicitud, aprobación, cotizaciones',
+      completada: ['aprobada', 'cotizando', 'ordenada', 'ejecucion', 'liquidacion', 'completada'].includes(solicitud.estado),
+      activa: solicitud.estado === 'pendiente' || solicitud.estado === 'cotizando',
+      rechazada: solicitud.estado === 'rechazada'
     },
     {
-      key: 'aprobacion',
-      label: 'Aprobación',
-      completada: solicitud.estado === 'aprobada' || solicitud.estado === 'cotizando' || solicitud.estado === 'completada',
-      rechazada: solicitud.estado === 'rechazada',
-      actor: solicitud.aprobaciones.length > 0
-        ? solicitud.aprobaciones.map((a: any) => a.aprobador?.nombre).filter(Boolean).join(', ')
-        : 'Sin aprobadores asignados'
+      key: 'fase2',
+      numero: 2,
+      label: 'Formalización',
+      descripcion: 'OF / OS emitida',
+      completada: ['ordenada', 'ejecucion', 'liquidacion', 'completada'].includes(solicitud.estado),
+      activa: solicitud.estado === 'aprobada'
     },
     {
-      key: 'cotizacion',
-      label: 'Cotización',
-      completada: solicitud.estado === 'ordenada' || solicitud.estado === 'completada',
-      pendiente: solicitud.estado === 'aprobada' || solicitud.estado === 'cotizando'
+      key: 'fase3',
+      numero: 3,
+      label: 'Ejecución y Liquidación',
+      descripcion: 'Ejecución, radicación, pago',
+      completada: ['liquidacion', 'completada'].includes(solicitud.estado),
+      activa: solicitud.estado === 'ordenada' || solicitud.estado === 'ejecucion'
     },
     {
-      key: 'orden',
-      label: 'Orden emitida',
-      completada: solicitud.estado === 'completada'
-    },
-    {
-      key: 'recepcion',
-      label: 'Recepción y pago',
-      completada: solicitud.estado === 'completada'
+      key: 'fase4',
+      numero: 4,
+      label: 'Auditoría de Compras y Pago',
+      descripcion: 'Contraloría y cierre',
+      completada: solicitud.estado === 'completada',
+      activa: solicitud.estado === 'liquidacion'
     }
   ]
 
@@ -272,47 +273,62 @@ export default function DetalleSolicitudPage() {
         </div>
       )}
 
-      {/* Timeline horizontal de etapas */}
+      {/* Timeline horizontal - 4 FASES OFICIALES DE FEELING */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 12 }}>
-          Proceso de compra
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 4 }}>
+          Proceso oficial de compras Feeling
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
+          Las 4 fases del ciclo de compra
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
-          {etapas.map((etapa, idx) => (
-            <div key={etapa.key} style={{ flex: 1, display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
+          {fases.map((fase, idx) => (
+            <div key={fase.key} style={{ flex: 1, display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: etapa.rechazada ? '#EF4444' : etapa.completada ? '#10B981' : etapa.pendiente ? '#F59E0B' : '#E5E7EB',
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: fase.rechazada ? '#EF4444' 
+                    : fase.completada ? '#10B981' 
+                    : fase.activa ? '#185FA5' 
+                    : '#E5E7EB',
                   color: '#fff', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700, marginBottom: 8,
-                  border: etapa.pendiente ? '2px solid #F59E0B' : 'none'
+                  fontSize: 14, fontWeight: 700, marginBottom: 10,
+                  border: fase.activa ? '3px solid #DBEAFE' : 'none',
+                  boxShadow: fase.activa ? '0 0 0 3px #185FA5' : 'none'
                 }}>
-                  {etapa.rechazada ? '✕' : etapa.completada ? '✓' : idx + 1}
+                  {fase.rechazada ? '✕' : fase.completada ? '✓' : fase.numero}
                 </div>
                 <div style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: etapa.completada ? '#111' : '#9ca3af',
-                  textAlign: 'center'
+                  fontSize: 11, fontWeight: 700,
+                  color: fase.completada ? '#065F46' 
+                    : fase.activa ? '#185FA5'
+                    : '#9ca3af',
+                  textAlign: 'center', letterSpacing: '0.02em',
+                  marginBottom: 3
                 }}>
-                  {etapa.label}
+                  FASE {fase.numero}
                 </div>
-                {etapa.fecha && (
-                  <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
-                    {new Date(etapa.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                  </div>
-                )}
-                {etapa.actor && (
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2, textAlign: 'center' }}>
-                    {etapa.actor}
-                  </div>
-                )}
+                <div style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: fase.completada || fase.activa ? '#111' : '#9ca3af',
+                  textAlign: 'center', marginBottom: 3
+                }}>
+                  {fase.label}
+                </div>
+                <div style={{
+                  fontSize: 10, color: '#6b7280',
+                  textAlign: 'center', maxWidth: 140,
+                  lineHeight: 1.3
+                }}>
+                  {fase.descripcion}
+                </div>
               </div>
-              {idx < etapas.length - 1 && (
+              {idx < fases.length - 1 && (
                 <div style={{
-                  flex: 1, height: 2, background: etapa.completada ? '#10B981' : '#E5E7EB',
-                  marginTop: 16, marginLeft: -8, marginRight: -8
+                  flex: 1, height: 3, 
+                  background: fase.completada ? '#10B981' : '#E5E7EB',
+                  marginTop: 20, marginLeft: -8, marginRight: -8
                 }} />
               )}
             </div>

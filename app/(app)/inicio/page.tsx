@@ -181,6 +181,56 @@ export default function InicioPage() {
         </button>
       </div>
 
+      {/* Las 4 fases oficiales del proceso Feeling */}
+      <div style={{
+        background: '#fff', border: '1px solid #e5e7eb',
+        borderRadius: 8, padding: 20, marginBottom: 32
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 4 }}>
+          Proceso oficial de compras — Feeling Company
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
+          Toda solicitud atraviesa estas 4 fases
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {[
+            { num: 1, label: 'Activación y Convocatoria', desc: 'Solicitud → Aprobación → Cotizaciones', path: '/cotizaciones', color: '#DBEAFE', colorText: '#1E40AF' },
+            { num: 2, label: 'Formalización', desc: 'Emisión de OF / OS al proveedor', path: '/ordenes', color: '#E0E7FF', colorText: '#3730A3' },
+            { num: 3, label: 'Ejecución y Liquidación', desc: 'Ejecución → Radicación → Pago', path: '/radicacion', color: '#FEF3C7', colorText: '#92400E' },
+            { num: 4, label: 'Auditoría de Compras y Pago', desc: 'Contraloría y cierre', path: '/contraloria', color: '#F3F4F6', colorText: '#374151' },
+          ].map(fase => (
+            <div
+              key={fase.num}
+              onClick={() => ['admin_compras', 'gerencia'].includes(usuario?.rol || '') && router.push(fase.path)}
+              style={{
+                background: fase.color, padding: 14, borderRadius: 6,
+                cursor: ['admin_compras', 'gerencia'].includes(usuario?.rol || '') ? 'pointer' : 'default',
+                transition: 'transform 0.15s'
+              }}
+              onMouseEnter={e => {
+                if (['admin_compras', 'gerencia'].includes(usuario?.rol || '')) {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                }
+              }}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: fase.colorText,
+                letterSpacing: '0.08em', marginBottom: 6
+              }}>
+                FASE {fase.num}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 4 }}>
+                {fase.label}
+              </div>
+              <div style={{ fontSize: 11, color: '#4b5563', lineHeight: 1.4 }}>
+                {fase.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Sección 1: Aprobaciones pendientes (si aplica) */}
       {aprobacionesPendientes.length > 0 && (
         <div style={{ marginBottom: 32 }}>
