@@ -4,12 +4,10 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 // ============================================================
-// NAVEGACIÓN - PROCESO OFICIAL FEELING COMPANY (4 FASES)
-// ============================================================
-// Fase 1: Activación y Convocatoria
-// Fase 2: Formalización
-// Fase 3: Ejecución y Liquidación
-// Fase 4: Auditoría de Compras y Pago
+// NAVEGACIÓN ORGANIZADA POR TAREAS (no por fases)
+// Las 4 fases de Feeling se ven en:
+//   - Pantalla de inicio (educativo)
+//   - Timeline del detalle de cada solicitud
 // ============================================================
 
 type NavItem = {
@@ -29,40 +27,35 @@ type NavSeparator = {
 type NavEntry = NavItem | NavSeparator
 
 const NAV: NavEntry[] = [
-  // TRABAJO DIARIO
+  // MI TRABAJO
+  { label: 'Mi trabajo', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
   { label: 'Inicio',             path: '/inicio',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
   { label: 'Mis solicitudes',    path: '/solicitudes',  roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
   { label: 'Aprobaciones',       path: '/aprobaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Pipeline',           path: '/pipeline',     roles: ['encargado', 'admin_compras', 'gerencia'] },
 
-  // FASE 1 - ACTIVACIÓN Y CONVOCATORIA
-  { label: 'Fase 1 · Activación', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Cotizaciones',       path: '/cotizaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  // COMPRAS - el flujo operativo
+  { label: 'Compras', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Pipeline',           path: '/pipeline',          roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Cotizaciones',       path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Órdenes de Facturación', path: '/ordenes',       roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Órdenes de Servicio',    path: '/ordenes-servicio', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Radicación',         path: '/radicacion',        roles: ['admin_compras', 'gerencia'] },
+  { label: 'Pagos',              path: '/pagos',             roles: ['admin_compras', 'gerencia'] },
 
-  // FASE 2 - FORMALIZACIÓN
-  { label: 'Fase 2 · Formalización', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Órdenes de Facturación', path: '/ordenes',           roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Órdenes de Servicio',    path: '/ordenes-servicio',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  // PROVEEDORES
+  { label: 'Proveedores', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Directorio',         path: '/proveedores',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Evaluación',         path: '/evaluacion',   roles: ['admin_compras', 'gerencia'] },
 
-  // FASE 3 - EJECUCIÓN Y LIQUIDACIÓN
-  { label: 'Fase 3 · Ejecución', sep: true, roles: ['admin_compras', 'gerencia'] },
-  { label: 'Radicación',         path: '/radicacion',   roles: ['admin_compras', 'gerencia'] },
-  { label: 'Pagos',              path: '/pagos',        roles: ['admin_compras', 'gerencia'] },
-
-  // FASE 4 - AUDITORÍA DE COMPRAS Y PAGO
-  { label: 'Fase 4 · Auditoría', sep: true, roles: ['admin_compras', 'gerencia'] },
-  { label: 'Contraloría',        path: '/contraloria',  roles: ['admin_compras', 'gerencia'] },
-  { label: 'Auditoría',          path: '/auditoria',    roles: ['admin_compras', 'gerencia'] },
-
-  // ANÁLISIS Y GESTIÓN
+  // ANÁLISIS
   { label: 'Análisis', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Dashboard',          path: '/dashboard',    roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Alertas',            path: '/alertas',      roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Score equipo',       path: '/score',        roles: ['admin_compras', 'gerencia'] },
-  { label: 'Proveedores',        path: '/proveedores',  roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Eval. proveedores',  path: '/evaluacion',   roles: ['admin_compras', 'gerencia'] },
+  { label: 'Contraloría',        path: '/contraloria',  roles: ['admin_compras', 'gerencia'] },
+  { label: 'Auditoría',          path: '/auditoria',    roles: ['admin_compras', 'gerencia'] },
 
-  // CONFIGURACIÓN
+  // SISTEMA
   { label: 'Sistema', sep: true, roles: ['admin_compras', 'gerencia'] },
   { label: 'Configuración',      path: '/admin',        roles: ['admin_compras', 'gerencia'] },
 ]
@@ -74,10 +67,9 @@ export default function Sidebar() {
 
   if (!usuario) return null
 
-  // Filtrar por rol
   const visibles = NAV.filter(item => item.roles.includes(usuario.rol))
 
-  // Limpiar separadores huérfanos (que no tienen items después)
+  // Limpiar separadores huérfanos (sin items después)
   const navLimpio = visibles.filter((item, idx) => {
     if (!('sep' in item)) return true
     const siguiente = visibles[idx + 1]
@@ -103,7 +95,7 @@ export default function Sidebar() {
             return (
               <div key={`sep-${idx}`} style={{
                 padding: '14px 20px 6px', fontSize: 10, fontWeight: 700,
-                color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em'
+                color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em'
               }}>
                 {item.label}
               </div>

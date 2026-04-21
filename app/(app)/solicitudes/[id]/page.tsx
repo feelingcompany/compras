@@ -143,42 +143,36 @@ export default function DetalleSolicitudPage() {
     )
   }
 
-  // Timeline: 4 FASES OFICIALES DEL PROCESO FEELING COMPANY
-  const fases = [
-    {
-      key: 'fase1',
-      numero: 1,
-      label: 'Activación y Convocatoria',
-      descripcion: 'Solicitud, aprobación, cotizaciones',
-      completada: ['aprobada', 'cotizando', 'ordenada', 'ejecucion', 'liquidacion', 'completada'].includes(solicitud.estado),
-      activa: solicitud.estado === 'pendiente' || solicitud.estado === 'cotizando',
-      rechazada: solicitud.estado === 'rechazada'
-    },
-    {
-      key: 'fase2',
-      numero: 2,
-      label: 'Formalización',
-      descripcion: 'OF / OS emitida',
-      completada: ['ordenada', 'ejecucion', 'liquidacion', 'completada'].includes(solicitud.estado),
-      activa: solicitud.estado === 'aprobada'
-    },
-    {
-      key: 'fase3',
-      numero: 3,
-      label: 'Ejecución y Liquidación',
-      descripcion: 'Ejecución, radicación, pago',
-      completada: ['liquidacion', 'completada'].includes(solicitud.estado),
-      activa: solicitud.estado === 'ordenada' || solicitud.estado === 'ejecucion'
-    },
-    {
-      key: 'fase4',
-      numero: 4,
-      label: 'Auditoría de Compras y Pago',
-      descripcion: 'Contraloría y cierre',
-      completada: solicitud.estado === 'completada',
-      activa: solicitud.estado === 'liquidacion'
-    }
-  ]
+  // Timeline: 8 PASOS OFICIALES DEL PROCESO FEELING COMPANY
+  const estadosCompletados: Record<string, string[]> = {
+    'pendiente':   ['p1'],
+    'cotizando':   ['p1', 'p2'],
+    'aprobada':    ['p1', 'p2', 'p3', 'p4'],
+    'ordenada':    ['p1', 'p2', 'p3', 'p4', 'p5'],
+    'auditoria':   ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+    'pagada':      ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'],
+    'completada':  ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'],
+    'rechazada':   ['p1'],
+  }
+  
+  const completados = estadosCompletados[solicitud.estado] || ['p1']
+  const rechazada = solicitud.estado === 'rechazada'
+
+  const pasos = [
+    { key: 'p1', numero: 1, label: 'Solicitud',     actor: 'Solicitante' },
+    { key: 'p2', numero: 2, label: 'Cotización',    actor: 'Encargado' },
+    { key: 'p3', numero: 3, label: 'Crear OF',      actor: 'Encargado' },
+    { key: 'p4', numero: 4, label: 'Aprobaciones',  actor: 'Según monto' },
+    { key: 'p5', numero: 5, label: 'Radicación',    actor: 'Aux. Compras' },
+    { key: 'p6', numero: 6, label: 'Auditoría',     actor: 'Auditor' },
+    { key: 'p7', numero: 7, label: 'Pago',          actor: 'Tesorería' },
+    { key: 'p8', numero: 8, label: 'Cierre',        actor: 'Contraloría' },
+  ].map((p, idx, arr) => ({
+    ...p,
+    completada: completados.includes(p.key) && !rechazada,
+    activa: !rechazada && completados[completados.length - 1] === p.key && completados.length < 8,
+    rechazada: rechazada && completados.includes(p.key)
+  }))
 
   const miAprobacion = solicitud.aprobaciones.find(
     (a: any) => a.aprobador_id === usuario?.id && a.estado === 'pendiente'
@@ -273,62 +267,50 @@ export default function DetalleSolicitudPage() {
         </div>
       )}
 
-      {/* Timeline horizontal - 4 FASES OFICIALES DE FEELING */}
+      {/* Timeline horizontal - 8 PASOS OFICIALES DE FEELING */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 4 }}>
-          Proceso oficial de compras Feeling
+          Proceso oficial Feeling — 8 pasos
         </div>
         <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
-          Las 4 fases del ciclo de compra
+          Desde la solicitud hasta el pago
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
-          {fases.map((fase, idx) => (
-            <div key={fase.key} style={{ flex: 1, display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
+          {pasos.map((paso, idx) => (
+            <div key={paso.key} style={{ flex: '1 0 auto', minWidth: 110, display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                 <div style={{
-                  width: 40, height: 40, borderRadius: '50%',
-                  background: fase.rechazada ? '#EF4444' 
-                    : fase.completada ? '#10B981' 
-                    : fase.activa ? '#185FA5' 
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: paso.rechazada ? '#EF4444'
+                    : paso.completada ? '#10B981'
+                    : paso.activa ? '#185FA5'
                     : '#E5E7EB',
                   color: '#fff', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 700, marginBottom: 10,
-                  border: fase.activa ? '3px solid #DBEAFE' : 'none',
-                  boxShadow: fase.activa ? '0 0 0 3px #185FA5' : 'none'
+                  fontSize: 13, fontWeight: 700, marginBottom: 8,
+                  boxShadow: paso.activa ? '0 0 0 3px #DBEAFE' : 'none'
                 }}>
-                  {fase.rechazada ? '✕' : fase.completada ? '✓' : fase.numero}
+                  {paso.rechazada ? '✕' : paso.completada ? '✓' : paso.numero}
                 </div>
                 <div style={{
-                  fontSize: 11, fontWeight: 700,
-                  color: fase.completada ? '#065F46' 
-                    : fase.activa ? '#185FA5'
-                    : '#9ca3af',
-                  textAlign: 'center', letterSpacing: '0.02em',
-                  marginBottom: 3
+                  fontSize: 11, fontWeight: 600,
+                  color: paso.completada || paso.activa ? '#111' : '#9ca3af',
+                  textAlign: 'center', marginBottom: 2
                 }}>
-                  FASE {fase.numero}
-                </div>
-                <div style={{
-                  fontSize: 12, fontWeight: 600,
-                  color: fase.completada || fase.activa ? '#111' : '#9ca3af',
-                  textAlign: 'center', marginBottom: 3
-                }}>
-                  {fase.label}
+                  {paso.label}
                 </div>
                 <div style={{
                   fontSize: 10, color: '#6b7280',
-                  textAlign: 'center', maxWidth: 140,
-                  lineHeight: 1.3
+                  textAlign: 'center'
                 }}>
-                  {fase.descripcion}
+                  {paso.actor}
                 </div>
               </div>
-              {idx < fases.length - 1 && (
+              {idx < pasos.length - 1 && (
                 <div style={{
-                  flex: 1, height: 3, 
-                  background: fase.completada ? '#10B981' : '#E5E7EB',
-                  marginTop: 20, marginLeft: -8, marginRight: -8
+                  flex: 1, height: 2,
+                  background: paso.completada ? '#10B981' : '#E5E7EB',
+                  marginTop: 17, marginLeft: -6, marginRight: -6
                 }} />
               )}
             </div>
