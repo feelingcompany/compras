@@ -163,7 +163,7 @@ export default function SolicitudesPage() {
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between',
-        alignItems: 'flex-start', marginBottom: 24
+        alignItems: 'flex-start', marginBottom: 20
       }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111', margin: 0, marginBottom: 4 }}>
@@ -186,6 +186,36 @@ export default function SolicitudesPage() {
           + Nueva solicitud
         </button>
       </div>
+
+      {/* Toggle de vista: Lista / Pipeline */}
+      {['encargado', 'admin_compras', 'gerencia'].includes(usuario?.rol || '') && (
+        <div style={{
+          display: 'flex', gap: 4, marginBottom: 20,
+          borderBottom: '1px solid #e5e7eb'
+        }}>
+          <button
+            style={{
+              padding: '10px 20px', background: 'none',
+              border: 'none', borderBottom: '2px solid #185FA5',
+              color: '#185FA5', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', marginBottom: -1
+            }}
+          >
+            Lista
+          </button>
+          <button
+            onClick={() => router.push('/pipeline')}
+            style={{
+              padding: '10px 20px', background: 'none',
+              border: 'none', borderBottom: '2px solid transparent',
+              color: '#6b7280', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', marginBottom: -1
+            }}
+          >
+            Pipeline (Kanban)
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{

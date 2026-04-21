@@ -35,7 +35,6 @@ const NAV: NavEntry[] = [
 
   // COMPRAS - el flujo operativo
   { label: 'Compras', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Pipeline',           path: '/pipeline',          roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Cotizaciones',       path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Órdenes de Facturación', path: '/ordenes',       roles: ['encargado', 'admin_compras', 'gerencia'] },
   { label: 'Órdenes de Servicio',    path: '/ordenes-servicio', roles: ['encargado', 'admin_compras', 'gerencia'] },

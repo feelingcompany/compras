@@ -138,18 +138,44 @@ export default function PipelineComprasPage() {
   return (
     <div style={{ padding: 'var(--space-6)', minHeight: '100vh', background: 'var(--gray-50)' }}>
       {/* Header */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{
-          fontSize: 'var(--text-3xl)',
-          fontWeight: 'var(--font-bold)',
-          color: 'var(--gray-900)',
-          marginBottom: 'var(--space-2)'
+          fontSize: 24, fontWeight: 700,
+          color: '#111', margin: 0, marginBottom: 4
         }}>
-          Pipeline de Compras
+          Solicitudes de compra
         </h1>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--gray-500)' }}>
-          Vista general del proceso de compras en tiempo real
-        </p>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          Vista Kanban del pipeline operativo
+        </div>
+      </div>
+
+      {/* Toggle de vista: Lista / Pipeline */}
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        borderBottom: '1px solid #e5e7eb'
+      }}>
+        <button
+          onClick={() => router.push('/solicitudes')}
+          style={{
+            padding: '10px 20px', background: 'none',
+            border: 'none', borderBottom: '2px solid transparent',
+            color: '#6b7280', fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', marginBottom: -1
+          }}
+        >
+          Lista
+        </button>
+        <button
+          style={{
+            padding: '10px 20px', background: 'none',
+            border: 'none', borderBottom: '2px solid #185FA5',
+            color: '#185FA5', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', marginBottom: -1
+          }}
+        >
+          Pipeline (Kanban)
+        </button>
       </div>
 
       {/* Stats Rápidos */}
