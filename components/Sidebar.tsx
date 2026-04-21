@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePermissions, Modulo } from '@/lib/permissions'
 
 const NAV = [
+  { id: 'super-admin',  label: 'SUPER ADMIN',          path: '/super-admin',   modulo: 'admin' as Modulo },
   { id: 'mi-trabajo',   label: '🎯 Mi Trabajo',        path: '/mi-trabajo',    modulo: 'mi-trabajo' as Modulo },
   { id: 'pipeline',     label: '🔄 Pipeline',          path: '/pipeline',      modulo: 'solicitudes' as Modulo },
   { id: 'dashboard',    label: '📊 Dashboard',         path: '/dashboard',     modulo: 'dashboard' as Modulo },
