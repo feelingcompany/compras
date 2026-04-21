@@ -8,7 +8,7 @@ export default function Home() {
   const router = useRouter()
   useEffect(() => {
     if (!loading) {
-      if (usuario) router.push('/dashboard')
+      if (usuario) router.push('/inicio')
       else router.push('/login')
     }
   }, [usuario, loading, router])

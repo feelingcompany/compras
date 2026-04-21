@@ -2,30 +2,33 @@
 import { useAuth } from '@/lib/auth'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { usePermissions, Modulo } from '@/lib/permissions'
 
-const NAV = [
-  { id: 'mi-trabajo',   label: '🎯 Mi Trabajo',        path: '/mi-trabajo',    modulo: 'mi-trabajo' as Modulo },
-  { id: 'pipeline',     label: '🔄 Pipeline',          path: '/pipeline',      modulo: 'solicitudes' as Modulo },
-  { id: 'dashboard',    label: '📊 Dashboard',         path: '/dashboard',     modulo: 'dashboard' as Modulo },
-  { id: 'alertas',      label: '⚡ Alertas',           path: '/alertas',       modulo: 'alertas' as Modulo },
-  { id: 'score',        label: '⭐ Score Equipo',      path: '/score',         modulo: 'score' as Modulo },
-  { id: 'sep1',         label: '— COMPRAS',           path: '', sep: true },
-  { id: 'solicitudes',  label: 'Solicitudes',          path: '/solicitudes',   modulo: 'solicitudes' as Modulo },
-  { id: 'nueva',        label: 'Nueva OF',             path: '/nueva-of',      modulo: 'nueva-of' as Modulo },
-  { id: 'cotizaciones', label: 'Cotizaciones',         path: '/cotizaciones',  modulo: 'cotizaciones' as Modulo },
-  { id: 'aprobaciones', label: 'Aprobaciones',         path: '/aprobaciones',  modulo: 'aprobaciones' as Modulo },
-  { id: 'auditoria',    label: 'Auditoría',            path: '/auditoria',     modulo: 'auditoria' as Modulo },
-  { id: 'radicacion',   label: 'Radicación',           path: '/radicacion',    modulo: 'radicacion' as Modulo },
-  { id: 'pagos',        label: 'Pagos',                path: '/pagos',         modulo: 'pagos' as Modulo },
-  { id: 'sep2',         label: '— GESTIÓN',           path: '', sep: true },
-  { id: 'ordenes',      label: 'Órdenes (OF)',         path: '/ordenes',       modulo: 'ordenes' as Modulo },
-  { id: 'proveedores',  label: 'Proveedores',          path: '/proveedores',   modulo: 'proveedores' as Modulo },
-  { id: 'evaluacion',   label: 'Eval. Proveedores',    path: '/evaluacion',    modulo: 'evaluacion' as Modulo },
-  { id: 'contraloria',  label: 'Contraloría',          path: '/contraloria',   modulo: 'contraloria' as Modulo },
-  { id: 'sep3',         label: '— SISTEMA',           path: '', sep: true },
-  { id: 'admin',        label: '⚙️ Admin',             path: '/admin',         modulo: 'admin' as Modulo },
-  { id: 'solicitudes-pendientes', label: '👥 Solicitudes Pendientes', path: '/admin/solicitudes-pendientes', modulo: 'admin' as Modulo },
+// Navegación simplificada — principios de diseño:
+// 1. Sin emojis (corporativo)
+// 2. Máximo 6 items top-level
+// 3. Vocabulario unificado (todo "Solicitud", no "OF")
+// 4. Agrupación por rol, no por feature
+
+type NavItem = {
+  label: string
+  path: string
+  roles: string[]  // qué roles pueden ver este item
+}
+
+const NAV: NavItem[] = [
+  // TRABAJO DIARIO — todos los roles
+  { label: 'Inicio',         path: '/inicio',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Solicitudes',    path: '/solicitudes',  roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Aprobaciones',   path: '/aprobaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  
+  // GESTIÓN — compras/gerencia
+  { label: 'Proveedores',    path: '/proveedores',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  
+  // ANÁLISIS — admin/gerencia
+  { label: 'Reportes',       path: '/dashboard',    roles: ['admin_compras', 'gerencia'] },
+  
+  // CONFIGURACIÓN — solo admin
+  { label: 'Configuración',  path: '/admin',        roles: ['admin_compras', 'gerencia'] },
 ]
 
 export default function Sidebar() {
@@ -33,70 +36,62 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  // Obtener permisos del usuario actual
-  const permisos = usuario ? usePermissions(usuario.rol, usuario.id) : null
+  if (!usuario) return null
 
-  // Filtrar navegación según permisos
-  const navFiltrado = NAV.filter(item => {
-    // Siempre mostrar separadores
-    if ((item as any).sep) return true
-    
-    // Si no hay permisos, no mostrar nada (loading state)
-    if (!permisos || !item.modulo) return false
-    
-    // Verificar si tiene acceso al módulo
-    return permisos.puedeAcceder(item.modulo)
-  })
-
-  // Filtrar separadores huérfanos (sin items después)
-  const navLimpio = navFiltrado.filter((item, idx) => {
-    if (!(item as any).sep) return true
-    // Si es separador, verificar que el siguiente item no sea separador
-    const siguiente = navFiltrado[idx + 1]
-    return siguiente && !(siguiente as any).sep
-  })
+  const navFiltrado = NAV.filter(item => item.roles.includes(usuario.rol))
 
   return (
     <aside style={{
-      width: 210, minWidth: 210, background: '#fff',
-      borderRight: '0.5px solid #ebebeb', display: 'flex',
+      width: 220, minWidth: 220, background: '#fff',
+      borderRight: '1px solid #e5e7eb', display: 'flex',
       flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0
     }}>
-      <div style={{ padding: '18px 16px 14px', borderBottom: '0.5px solid #ebebeb' }}>
-        <div style={{ fontSize: 14, fontWeight: 500 }}>Compras FC</div>
-        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>Feeling Company</div>
+      {/* Header */}
+      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>Compras FC</div>
+        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Feeling Company</div>
       </div>
-      <nav style={{ flex: 1, padding: '6px 0', overflowY: 'auto' }}>
-        {navLimpio.map(n => {
-          if ((n as any).sep) return (
-            <div key={n.id} style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: '#ccc', letterSpacing: '.06em' }}>{n.label}</div>
-          )
-          const active = pathname === n.path
+
+      {/* Navegación */}
+      <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
+        {navFiltrado.map(item => {
+          const active = pathname === item.path || pathname.startsWith(item.path + '/')
           return (
-            <Link key={n.id} href={n.path} style={{ textDecoration: 'none' }}>
+            <Link key={item.path} href={item.path} style={{ textDecoration: 'none' }}>
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 16px', fontSize: 13,
-                color: active ? '#1a1a1a' : '#4a4a4a', fontWeight: active ? 500 : 400,
-                borderLeft: `2px solid ${active ? '#185FA5' : 'transparent'}`,
-                background: active ? '#fafafa' : 'transparent',
-                cursor: 'pointer', transition: 'all .12s'
+                display: 'flex', alignItems: 'center',
+                padding: '10px 20px', fontSize: 13,
+                color: active ? '#185FA5' : '#374151',
+                fontWeight: active ? 600 : 400,
+                background: active ? '#EFF6FF' : 'transparent',
+                borderLeft: `3px solid ${active ? '#185FA5' : 'transparent'}`,
+                cursor: 'pointer', transition: 'all 0.15s'
               }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? '#185FA5' : '#c0c0c0', flexShrink: 0 }} />
-                {n.label}
+                {item.label}
               </div>
             </Link>
           )
         })}
       </nav>
-      <div style={{ padding: '12px 16px', borderTop: '0.5px solid #ebebeb' }}>
-        {usuario && (
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 500 }}>{usuario.nombre}</div>
-            <div style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>{usuario.rol}</div>
+
+      {/* Footer con usuario */}
+      <div style={{ padding: '16px 20px', borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>
+            {usuario.nombre}
           </div>
-        )}
-        <button onClick={() => { logout(); router.push('/login') }} style={{ fontSize: 11, color: '#bbb', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2, textTransform: 'capitalize' }}>
+            {usuario.rol.replace('_', ' ')}
+          </div>
+        </div>
+        <button
+          onClick={() => { logout(); router.push('/login') }}
+          style={{
+            fontSize: 12, color: '#6b7280', background: 'none',
+            border: 'none', cursor: 'pointer', padding: 0,
+            textDecoration: 'underline'
+          }}
+        >
           Cerrar sesión
         </button>
       </div>
