@@ -135,7 +135,7 @@ export default function NuevaSolicitudPage() {
         .from('solicitudes')
         .insert({
           solicitante_id: usuario.id,
-          centro_costo: centroCosto,
+          // centro_costo: centroCosto, // Temporalmente deshabilitado
           ot_os: otOs || null,
           ciudad,
           fecha_requerida: fechaRequerida,
