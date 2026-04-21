@@ -56,6 +56,7 @@ const NAV: NavEntry[] = [
 
   // SISTEMA
   { label: 'Sistema', sep: true, roles: ['admin_compras', 'gerencia'] },
+  { label: 'Ensayo del proceso',  path: '/simulacion',   roles: ['admin_compras', 'gerencia'] },
   { label: 'Configuración',      path: '/admin',        roles: ['admin_compras', 'gerencia'] },
 ]
 
