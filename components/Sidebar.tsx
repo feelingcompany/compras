@@ -6,6 +6,7 @@ import { usePermissions, Modulo } from '@/lib/permissions'
 
 const NAV = [
   { id: 'mi-trabajo',   label: '🎯 Mi Trabajo',        path: '/mi-trabajo',    modulo: 'mi-trabajo' as Modulo },
+  { id: 'pipeline',     label: '🔄 Pipeline',          path: '/pipeline',      modulo: 'solicitudes' as Modulo },
   { id: 'dashboard',    label: '📊 Dashboard',         path: '/dashboard',     modulo: 'dashboard' as Modulo },
   { id: 'alertas',      label: '⚡ Alertas',           path: '/alertas',       modulo: 'alertas' as Modulo },
   { id: 'score',        label: '⭐ Score Equipo',      path: '/score',         modulo: 'score' as Modulo },
