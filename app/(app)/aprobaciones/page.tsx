@@ -1,530 +1,589 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth'
+
+// ============================================================
+// APROBACIONES — Bandeja de firmas unificada
+//
+// Todo lo que requiere la DECISIÓN / FIRMA del usuario actual:
+//
+// TAB 1 - "Autorizar gasto": solicitudes pendientes de aprobar
+//   Decisión: ¿autorizo que se gaste este dinero?
+//
+// TAB 2 - "Autorizar pago": OFs aprobadas que esperan pago
+//   Decisión: ¿autorizo que salga este pago al proveedor?
+//
+// ============================================================
 
 export default function AprobacionesPage() {
   const { usuario } = useAuth()
   const router = useRouter()
   const supabase = createClient()
-  
-  const [aprobaciones, setAprobaciones] = useState<any[]>([])
+
+  const [tab, setTab] = useState<'gasto' | 'pago'>('gasto')
   const [loading, setLoading] = useState(true)
-  const [procesando, setProcesando] = useState<string | null>(null)
-  const [selectedRechazo, setSelectedRechazo] = useState<any>(null)
-  const [comentarioRechazo, setComentarioRechazo] = useState('')
+  const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [ofsPorPagar, setOfsPorPagar] = useState<any[]>([])
+  const [filtroMonto, setFiltroMonto] = useState<'todos' | 'altos' | 'criticos'>('todos')
 
   useEffect(() => {
     if (!usuario) {
       router.push('/login')
       return
     }
-    
-    if (usuario.rol === 'solicitante') {
+    if (!['encargado', 'admin_compras', 'gerencia'].includes(usuario.rol)) {
       router.push('/')
       return
     }
-    
-    cargarAprobaciones()
-    const interval = setInterval(cargarAprobaciones, 30000)
-    return () => clearInterval(interval)
+    cargar()
   }, [usuario])
 
-  const cargarAprobaciones = async () => {
-    if (!usuario) return
-    
+  const cargar = async () => {
     try {
-      // 1. Aprobaciones pendientes del usuario
-      const { data: aprobacionesData, error } = await supabase
+      // TAB 1: Solicitudes pendientes donde ME toca aprobar
+      const { data: aprobs } = await supabase
         .from('aprobaciones')
         .select('*')
-        .eq('aprobador_id', usuario.id)
+        .eq('aprobador_id', usuario!.id)
         .eq('estado', 'pendiente')
-        .order('fecha_limite', { ascending: true })
-      
-      if (error) {
-        console.error('Error:', error)
-        setLoading(false)
-        return
+        .order('created_at', { ascending: false })
+
+      let solicitudesEnriched: any[] = []
+      if (aprobs && aprobs.length > 0) {
+        const solIds = aprobs.map((a: any) => a.solicitud_id)
+        const [sols, items] = await Promise.all([
+          supabase.from('solicitudes').select('*').in('id', solIds),
+          supabase.from('items_solicitud').select('*').in('solicitud_id', solIds)
+        ])
+
+        const solicitanteIds = [...new Set((sols.data || []).map((s: any) => s.solicitante_id))]
+        const { data: users } = await supabase
+          .from('usuarios').select('id, nombre, area, rol').in('id', solicitanteIds)
+
+        // Solo incluir las aprobaciones donde los niveles previos YA fueron aprobados
+        // (O sea, realmente me toca a MÍ ahora)
+        const todasAprobsIds = aprobs.map((a: any) => a.solicitud_id)
+        const { data: todasAprobsDeSols } = await supabase
+          .from('aprobaciones').select('*').in('solicitud_id', todasAprobsIds)
+
+        solicitudesEnriched = aprobs
+          .map((apr: any) => {
+            const sol = (sols.data || []).find((s: any) => s.id === apr.solicitud_id)
+            if (!sol) return null
+            const solItems = (items.data || []).filter((i: any) => i.solicitud_id === apr.solicitud_id)
+            const monto = solItems.reduce((s: number, i: any) => s + (parseFloat(i.presupuesto_estimado) || 0), 0)
+
+            // Verificar que niveles previos estén aprobados
+            const nivelesPrevios = (todasAprobsDeSols || []).filter((a: any) =>
+              a.solicitud_id === apr.solicitud_id &&
+              a.nivel_aprobacion < apr.nivel_aprobacion
+            )
+            const previoTodoAprobado = nivelesPrevios.every((a: any) => a.estado === 'aprobada')
+            
+            return {
+              ...apr,
+              solicitud: sol,
+              solicitante: (users || []).find((u: any) => u.id === sol.solicitante_id),
+              monto,
+              items_count: solItems.length,
+              bloqueada: !previoTodoAprobado,
+              dias_esperando: sol.created_at
+                ? Math.floor((Date.now() - new Date(sol.created_at).getTime()) / (1000 * 60 * 60 * 24))
+                : 0
+            }
+          })
+          .filter(Boolean)
       }
+      setSolicitudes(solicitudesEnriched)
 
-      if (!aprobacionesData || aprobacionesData.length === 0) {
-        setAprobaciones([])
-        setLoading(false)
-        return
-      }
+      // TAB 2: OFs aprobadas pendientes de autorizar pago
+      // Solo para admin_compras y gerencia (no encargados)
+      if (['admin_compras', 'gerencia'].includes(usuario!.rol)) {
+        const { data: ofs } = await supabase
+          .from('ordenes_facturacion')
+          .select('*')
+          .eq('estado_verificacion', 'APROBADA')
+          .not('estado_pago', 'in', '(PAGADO,PAGADA)')
+          .order('created_at', { ascending: false })
 
-      // 2. Cargar solicitudes relacionadas
-      const solicitudIds = aprobacionesData.map(a => a.solicitud_id)
-      const { data: solicitudes } = await supabase
-        .from('solicitudes')
-        .select('*')
-        .in('id', solicitudIds)
+        let ofsEnriched: any[] = []
+        if (ofs && ofs.length > 0) {
+          const provIds = [...new Set(ofs.map((o: any) => o.proveedor_id).filter(Boolean))]
+          const solIds = [...new Set(ofs.map((o: any) => o.solicitud_id).filter(Boolean))]
 
-      // 3. Cargar solicitantes
-      const solicitanteIds = [...new Set((solicitudes || []).map(s => s.solicitante_id))]
-      const { data: solicitantes } = await supabase
-        .from('usuarios')
-        .select('id, nombre, email, rol')
-        .in('id', solicitanteIds)
+          const [provs, sols, items] = await Promise.all([
+            provIds.length > 0
+              ? supabase.from('proveedores').select('id, razon_social, nit').in('id', provIds)
+              : Promise.resolve({ data: [] }),
+            solIds.length > 0
+              ? supabase.from('solicitudes').select('id, descripcion, centro_costo').in('id', solIds)
+              : Promise.resolve({ data: [] }),
+            solIds.length > 0
+              ? supabase.from('items_solicitud').select('*').in('solicitud_id', solIds)
+              : Promise.resolve({ data: [] })
+          ])
 
-      // 4. Cargar items
-      const { data: items } = await supabase
-        .from('items_solicitud')
-        .select('*')
-        .in('solicitud_id', solicitudIds)
-
-      // 5. Cargar OTRAS aprobaciones de las mismas solicitudes (para ver el flujo completo)
-      const { data: todasAprobaciones } = await supabase
-        .from('aprobaciones')
-        .select('*')
-        .in('solicitud_id', solicitudIds)
-
-      // Armar estructura
-      const enriched = aprobacionesData.map(apr => {
-        const solicitud = (solicitudes || []).find(s => s.id === apr.solicitud_id)
-        const solicitante = (solicitantes || []).find(u => u.id === solicitud?.solicitante_id)
-        const solicitudItems = (items || []).filter(i => i.solicitud_id === apr.solicitud_id)
-        const aprobacionesSolicitud = (todasAprobaciones || [])
-          .filter(a => a.solicitud_id === apr.solicitud_id)
-          .sort((a, b) => a.nivel_aprobacion - b.nivel_aprobacion)
-        
-        const montoTotal = solicitudItems.reduce((sum, item) => 
-          sum + (parseFloat(item.presupuesto_estimado) || 0), 0
-        )
-
-        // Verificar si niveles previos están aprobados
-        const nivelesPrevios = aprobacionesSolicitud.filter(a => a.nivel_aprobacion < apr.nivel_aprobacion)
-        const puedeAprobar = nivelesPrevios.every(a => a.estado === 'aprobada')
-        
-        return {
-          ...apr,
-          solicitud,
-          solicitante,
-          items: solicitudItems,
-          monto_total: montoTotal,
-          todas_aprobaciones: aprobacionesSolicitud,
-          puede_aprobar: puedeAprobar
+          ofsEnriched = ofs.map((o: any) => {
+            const proveedor = (provs.data || []).find((p: any) => p.id === o.proveedor_id)
+            const solicitud = (sols.data || []).find((s: any) => s.id === o.solicitud_id)
+            const solItems = (items.data || []).filter((i: any) => i.solicitud_id === o.solicitud_id)
+            const presupuesto = solItems.reduce((sum: number, i: any) => sum + (parseFloat(i.presupuesto_estimado) || 0), 0)
+            const valorOF = parseFloat(o.valor_total) || 0
+            const flags: string[] = []
+            if (presupuesto > 0 && valorOF > presupuesto * 1.1) flags.push('SOBRECOSTO')
+            if (!proveedor?.nit) flags.push('SIN_NIT')
+            if (!solicitud) flags.push('SIN_SOLICITUD')
+            
+            return {
+              ...o,
+              proveedor,
+              solicitud,
+              presupuesto,
+              flags,
+              dias_esperando: o.created_at
+                ? Math.floor((Date.now() - new Date(o.created_at).getTime()) / (1000 * 60 * 60 * 24))
+                : 0
+            }
+          })
         }
-      })
+        setOfsPorPagar(ofsEnriched)
+      }
 
-      setAprobaciones(enriched)
       setLoading(false)
-    } catch (error) {
-      console.error('Error:', error)
+    } catch (err) {
+      console.error(err)
       setLoading(false)
     }
   }
 
-  const aprobar = async (aprobacionId: string) => {
-    if (!confirm('¿Confirmar aprobación?')) return
-    setProcesando(aprobacionId)
-    
-    const { error } = await supabase
+  const aprobarSolicitud = async (aprobacionId: string, solicitudId: string) => {
+    if (!confirm('¿Autorizar el gasto de esta solicitud?')) return
+
+    await supabase
       .from('aprobaciones')
-      .update({ 
-        estado: 'aprobada',
-        fecha_aprobacion: new Date().toISOString()
-      })
+      .update({ estado: 'aprobada', fecha_aprobacion: new Date().toISOString() })
       .eq('id', aprobacionId)
-    
-    if (error) {
-      alert('Error: ' + error.message)
-    } else {
-      // Actualizar estado de solicitud manualmente (fallback)
-      const apr = aprobaciones.find(a => a.id === aprobacionId)
-      if (apr) {
-        const todasAprobadas = apr.todas_aprobaciones.every((a: any) => 
-          a.id === aprobacionId ? true : a.estado === 'aprobada'
-        )
-        if (todasAprobadas) {
-          await supabase
-            .from('solicitudes')
-            .update({ estado: 'aprobada', updated_at: new Date().toISOString() })
-            .eq('id', apr.solicitud_id)
-        }
-      }
-      cargarAprobaciones()
-    }
-    setProcesando(null)
-  }
 
-  const abrirRechazo = (apr: any) => {
-    setSelectedRechazo(apr)
-    setComentarioRechazo('')
-  }
-
-  const confirmarRechazo = async () => {
-    if (!comentarioRechazo.trim()) {
-      alert('Ingresá el motivo del rechazo')
-      return
-    }
-    
-    setProcesando(selectedRechazo.id)
-    
-    const { error } = await supabase
+    // Verificar si todas las aprobaciones de la solicitud ya están
+    const { data: todas } = await supabase
       .from('aprobaciones')
-      .update({ 
-        estado: 'rechazada',
-        fecha_rechazo: new Date().toISOString(),
-        comentarios: comentarioRechazo
-      })
-      .eq('id', selectedRechazo.id)
-    
-    if (error) {
-      alert('Error: ' + error.message)
-    } else {
-      // Actualizar estado de solicitud a rechazada
+      .select('*')
+      .eq('solicitud_id', solicitudId)
+
+    const todasAprobadas = (todas || []).every((a: any) => a.estado === 'aprobada')
+    if (todasAprobadas) {
       await supabase
         .from('solicitudes')
-        .update({ estado: 'rechazada', updated_at: new Date().toISOString() })
-        .eq('id', selectedRechazo.solicitud_id)
-      
-      setSelectedRechazo(null)
-      setComentarioRechazo('')
-      cargarAprobaciones()
+        .update({ estado: 'aprobada', updated_at: new Date().toISOString() })
+        .eq('id', solicitudId)
     }
-    setProcesando(null)
+
+    cargar()
   }
 
-  const getDiasRestantes = (fechaLimite: string) => {
-    if (!fechaLimite) return null
-    const dias = Math.ceil((new Date(fechaLimite).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    return dias
+  const rechazarSolicitud = async (aprobacionId: string, solicitudId: string) => {
+    const motivo = prompt('Motivo del rechazo:')
+    if (!motivo) return
+
+    await supabase
+      .from('aprobaciones')
+      .update({
+        estado: 'rechazada',
+        fecha_rechazo: new Date().toISOString(),
+        comentarios: motivo
+      })
+      .eq('id', aprobacionId)
+
+    await supabase
+      .from('solicitudes')
+      .update({ estado: 'rechazada', updated_at: new Date().toISOString() })
+      .eq('id', solicitudId)
+
+    cargar()
   }
 
-  if (loading && aprobaciones.length === 0) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>
-        Cargando aprobaciones...
-      </div>
-    )
+  const autorizarPago = async (ofId: string) => {
+    if (!confirm('¿Autorizar el pago de esta OF? Esta decisión autoriza el desembolso al proveedor.')) return
+    await supabase
+      .from('ordenes_facturacion')
+      .update({ estado_pago: 'PAGADO', updated_at: new Date().toISOString() })
+      .eq('id', ofId)
+    cargar()
   }
 
-  const stats = {
-    total: aprobaciones.length,
-    urgentes: aprobaciones.filter(a => a.solicitud?.prioridad === 'urgente' || a.solicitud?.prioridad === 'critico').length,
-    vencidas: aprobaciones.filter(a => {
-      const dias = getDiasRestantes(a.fecha_limite)
-      return dias !== null && dias < 0
-    }).length,
-    montoTotal: aprobaciones.reduce((sum, a) => sum + a.monto_total, 0)
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Cargando...</div>
   }
+
+  const aprobablesAhora = solicitudes.filter((s: any) => !s.bloqueada)
+  const bloqueadas = solicitudes.filter((s: any) => s.bloqueada)
+
+  const solicitudesFiltradas = aprobablesAhora.filter((s: any) => {
+    if (filtroMonto === 'todos') return true
+    if (filtroMonto === 'altos') return s.monto >= 1_000_000
+    if (filtroMonto === 'criticos') return s.monto >= 5_000_000
+    return true
+  })
+
+  const totalMontoGasto = aprobablesAhora.reduce((s: number, x: any) => s + x.monto, 0)
+  const totalMontoPago = ofsPorPagar.reduce((s: number, x: any) => s + (parseFloat(x.valor_total) || 0), 0)
+  const totalDecisiones = aprobablesAhora.length + ofsPorPagar.length
+  const puedeVerPagos = ['admin_compras', 'gerencia'].includes(usuario!.rol)
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: 32, maxWidth: 1300, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1a1a1a', margin: 0, marginBottom: 4 }}>
-          Aprobaciones Pendientes
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111', margin: 0, marginBottom: 4 }}>
+          Aprobaciones
         </h1>
-        <div style={{ fontSize: 13, color: '#666' }}>
-          Solicitudes que requieren tu aprobación
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          {totalDecisiones > 0
+            ? <>Tenés <strong style={{ color: '#DC2626' }}>{totalDecisiones} decisiones pendientes</strong> de firma</>
+            : 'Todo firmado. No hay pendientes.'}
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Explicación */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 12, marginBottom: 24
+        background: '#EFF6FF', border: '1px solid #BFDBFE',
+        borderRadius: 6, padding: 14, marginBottom: 20,
+        fontSize: 12, color: '#1E40AF', lineHeight: 1.5
       }}>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>PENDIENTES</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.total}</div>
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>URGENTES</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#F59E0B' }}>{stats.urgentes}</div>
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>VENCIDAS</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#EF4444' }}>{stats.vencidas}</div>
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 14, borderRadius: 6 }}>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>MONTO TOTAL</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#185FA5' }}>
-            ${stats.montoTotal.toLocaleString('es-CO')}
-          </div>
-        </div>
+        <strong>Tu bandeja de firmas:</strong> todo lo que requiere tu decisión personal en un solo lugar.
+        {puedeVerPagos ? (
+          <> Aprobás <strong>gasto</strong> (antes de comprometer dinero) y autorizás <strong>pago</strong> (antes del desembolso).</>
+        ) : (
+          <> Aprobás el <strong>gasto</strong> de solicitudes de tu equipo antes de que se comprometa dinero.</>
+        )}
       </div>
 
-      {/* Lista */}
-      {aprobaciones.length === 0 ? (
-        <div style={{
-          background: '#fff', border: '1px solid #e5e7eb', padding: 48,
-          borderRadius: 6, textAlign: 'center'
-        }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#666', marginBottom: 6 }}>
-            No tenés aprobaciones pendientes
-          </div>
-          <div style={{ fontSize: 13, color: '#999' }}>
-            Todas las solicitudes asignadas a vos están procesadas
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {aprobaciones.map(apr => {
-            const diasRestantes = getDiasRestantes(apr.fecha_limite)
-            const vencida = diasRestantes !== null && diasRestantes < 0
-            const prioridadColor = apr.solicitud?.prioridad === 'critico' ? '#EF4444' :
-                                    apr.solicitud?.prioridad === 'urgente' ? '#F59E0B' : '#185FA5'
+      {/* KPIs */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: puedeVerPagos ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)',
+        gap: 10, marginBottom: 20
+      }}>
+        <StatCard label="Autorizar gasto" valor={aprobablesAhora.length} color="#DC2626" subtitulo="Solicitudes" />
+        <StatCard label="Monto gasto" valor={`$${(totalMontoGasto / 1000000).toFixed(1)}M`} color="#185FA5" subtitulo="Pendientes" />
+        {puedeVerPagos && (
+          <>
+            <StatCard label="Autorizar pago" valor={ofsPorPagar.length} color="#F59E0B" subtitulo="OFs aprobadas" />
+            <StatCard label="Monto pago" valor={`$${(totalMontoPago / 1000000).toFixed(1)}M`} color="#3730A3" subtitulo="Por desembolsar" />
+          </>
+        )}
+        {!puedeVerPagos && (
+          <StatCard label="Bloqueadas" valor={bloqueadas.length} color="#9ca3af" subtitulo="Esperan otros" />
+        )}
+      </div>
 
-            return (
-              <div key={apr.id} style={{
-                background: '#fff', border: '1px solid #e5e7eb',
-                borderLeft: `4px solid ${vencida ? '#EF4444' : prioridadColor}`,
-                borderRadius: 6, padding: 18
-              }}>
-                {/* Header solicitud */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-                      <span style={{
-                        padding: '3px 8px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                        background: '#EEF2FF', color: '#3730A3'
-                      }}>
-                        NIVEL {apr.nivel_aprobacion}
-                      </span>
-                      {apr.solicitud?.prioridad && (
-                        <span style={{
-                          padding: '3px 8px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                          background: prioridadColor + '20', color: prioridadColor,
-                          textTransform: 'uppercase'
-                        }}>
-                          {apr.solicitud.prioridad}
-                        </span>
-                      )}
-                      {vencida && (
-                        <span style={{
-                          padding: '3px 8px', background: '#EF4444', color: '#fff',
-                          fontSize: 10, fontWeight: 700, borderRadius: 3
-                        }}>
-                          VENCIDA
-                        </span>
-                      )}
-                      {!apr.puede_aprobar && (
-                        <span style={{
-                          padding: '3px 8px', background: '#F3F4F6', color: '#666',
-                          fontSize: 10, fontWeight: 600, borderRadius: 3
-                        }}>
-                          ESPERANDO NIVELES PREVIOS
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-                      {apr.solicitud?.descripcion || 'Sin descripción'}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#666' }}>
-                      Solicitante: <strong>{apr.solicitante?.nombre || 'Desconocido'}</strong>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#185FA5' }}>
-                      ${apr.monto_total.toLocaleString('es-CO')}
-                    </div>
-                    {diasRestantes !== null && (
-                      <div style={{
-                        fontSize: 11,
-                        color: vencida ? '#EF4444' : diasRestantes <= 1 ? '#F59E0B' : '#666'
-                      }}>
-                        {vencida 
-                          ? `Vencida hace ${Math.abs(diasRestantes)}d`
-                          : `${diasRestantes}d restante${diasRestantes !== 1 ? 's' : ''}`
-                        }
-                      </div>
-                    )}
-                  </div>
-                </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 2, marginBottom: 20, borderBottom: '1px solid #e5e7eb' }}>
+        <Tab
+          activo={tab === 'gasto'}
+          onClick={() => setTab('gasto')}
+          count={aprobablesAhora.length}
+          color="#DC2626"
+        >
+          Autorizar gasto
+        </Tab>
+        {puedeVerPagos && (
+          <Tab
+            activo={tab === 'pago'}
+            onClick={() => setTab('pago')}
+            count={ofsPorPagar.length}
+            color="#F59E0B"
+          >
+            Autorizar pago
+          </Tab>
+        )}
+      </div>
 
-                {/* Detalles */}
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
-                  padding: 12, background: '#F9FAFB', borderRadius: 4,
-                  marginBottom: 12, fontSize: 11
-                }}>
-                  <div>
-                    <div style={{ color: '#666', marginBottom: 2 }}>Centro de Costo</div>
-                    <div style={{ fontWeight: 600 }}>{apr.solicitud?.centro_costo || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', marginBottom: 2 }}>Ciudad</div>
-                    <div style={{ fontWeight: 600 }}>{apr.solicitud?.ciudad || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', marginBottom: 2 }}>Fecha Requerida</div>
-                    <div style={{ fontWeight: 600 }}>
-                      {apr.solicitud?.fecha_requerida 
-                        ? new Date(apr.solicitud.fecha_requerida).toLocaleDateString('es-CO') 
-                        : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', marginBottom: 2 }}>OT/OS</div>
-                    <div style={{ fontWeight: 600 }}>{apr.solicitud?.ot_os || '—'}</div>
-                  </div>
-                </div>
-
-                {/* Items */}
-                {apr.items.length > 0 && (
-                  <div style={{
-                    background: '#F9FAFB', borderRadius: 4, marginBottom: 12,
-                    border: '1px solid #e5e7eb', overflow: 'hidden'
-                  }}>
-                    <div style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, 
-                                   borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
-                      ÍTEMS ({apr.items.length})
-                    </div>
-                    <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
-                      <tbody>
-                        {apr.items.map((item: any) => (
-                          <tr key={item.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                            <td style={{ padding: '6px 12px' }}>
-                              <div style={{ fontWeight: 500 }}>{item.descripcion}</div>
-                              <div style={{ fontSize: 10, color: '#666' }}>{item.categoria}</div>
-                            </td>
-                            <td style={{ padding: '6px 12px', textAlign: 'right' }}>
-                              {item.cantidad} {item.unidad}
-                            </td>
-                            <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600 }}>
-                              ${parseFloat(item.presupuesto_estimado || 0).toLocaleString('es-CO')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Timeline niveles */}
-                {apr.todas_aprobaciones.length > 1 && (
-                  <div style={{
-                    display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center',
-                    padding: 8, background: '#F9FAFB', borderRadius: 4, fontSize: 10
-                  }}>
-                    <strong style={{ marginRight: 4 }}>Flujo:</strong>
-                    {apr.todas_aprobaciones.map((a: any, idx: number) => (
-                      <span key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{
-                          padding: '2px 6px', borderRadius: 2, fontWeight: 500,
-                          background: a.estado === 'aprobada' ? '#D1FAE5' :
-                                     a.estado === 'rechazada' ? '#FEE2E2' :
-                                     a.id === apr.id ? '#DBEAFE' : '#F3F4F6',
-                          color: a.estado === 'aprobada' ? '#065F46' :
-                                a.estado === 'rechazada' ? '#991B1B' :
-                                a.id === apr.id ? '#1E40AF' : '#6B7280'
-                        }}>
-                          N{a.nivel_aprobacion}: {a.estado}
-                          {a.id === apr.id && ' (ESTE)'}
-                        </span>
-                        {idx < apr.todas_aprobaciones.length - 1 && <span>→</span>}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Acciones */}
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => router.push(`/solicitudes/${apr.solicitud_id}`)}
-                    style={{
-                      padding: '8px 16px', background: '#fff', color: '#374151',
-                      border: '1px solid #d1d5db', borderRadius: 4,
-                      fontSize: 13, cursor: 'pointer', fontWeight: 500
-                    }}
-                  >
-                    Ver Detalle
-                  </button>
-                  <button
-                    onClick={() => abrirRechazo(apr)}
-                    disabled={procesando === apr.id || !apr.puede_aprobar}
-                    style={{
-                      padding: '8px 16px', background: '#fff', color: '#EF4444',
-                      border: '1px solid #EF4444', borderRadius: 4,
-                      fontSize: 13, cursor: 'pointer', fontWeight: 500,
-                      opacity: (procesando === apr.id || !apr.puede_aprobar) ? 0.5 : 1
-                    }}
-                  >
-                    Rechazar
-                  </button>
-                  <button
-                    onClick={() => aprobar(apr.id)}
-                    disabled={procesando === apr.id || !apr.puede_aprobar}
-                    style={{
-                      padding: '8px 16px', background: apr.puede_aprobar ? '#10B981' : '#9CA3AF',
-                      color: '#fff', border: 'none', borderRadius: 4,
-                      fontSize: 13, cursor: apr.puede_aprobar ? 'pointer' : 'not-allowed', 
-                      fontWeight: 600,
-                      opacity: procesando === apr.id ? 0.5 : 1
-                    }}
-                  >
-                    {procesando === apr.id ? 'Procesando...' : 'Aprobar'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Modal Rechazo */}
-      {selectedRechazo && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 8, padding: 24,
-            maxWidth: 500, width: '100%'
-          }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
-              Rechazar Solicitud
+      {/* ============ TAB AUTORIZAR GASTO ============ */}
+      {tab === 'gasto' && (
+        <>
+          {/* Filtros por monto */}
+          {aprobablesAhora.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+              <FilterBtn activo={filtroMonto === 'todos'} onClick={() => setFiltroMonto('todos')}>
+                Todos ({aprobablesAhora.length})
+              </FilterBtn>
+              <FilterBtn activo={filtroMonto === 'altos'} onClick={() => setFiltroMonto('altos')}>
+                Altos ≥$1M ({aprobablesAhora.filter((s: any) => s.monto >= 1_000_000).length})
+              </FilterBtn>
+              <FilterBtn activo={filtroMonto === 'criticos'} onClick={() => setFiltroMonto('criticos')}>
+                Críticos ≥$5M ({aprobablesAhora.filter((s: any) => s.monto >= 5_000_000).length})
+              </FilterBtn>
             </div>
-            <div style={{ marginBottom: 16, fontSize: 13, color: '#666' }}>
-              {selectedRechazo.solicitud?.descripcion}
-            </div>
-            <label style={{ display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 600 }}>
-              Motivo del rechazo *
-            </label>
-            <textarea
-              value={comentarioRechazo}
-              onChange={e => setComentarioRechazo(e.target.value)}
-              placeholder="Explicá por qué rechazás esta solicitud..."
-              rows={4}
-              style={{
-                width: '100%', padding: 10, border: '1px solid #d1d5db',
-                borderRadius: 4, fontSize: 13, resize: 'vertical',
-                fontFamily: 'inherit', marginBottom: 16
-              }}
+          )}
+
+          {solicitudesFiltradas.length === 0 && bloqueadas.length === 0 ? (
+            <Empty
+              titulo="No hay solicitudes esperando tu firma"
+              subtitulo="Cuando tus equipos creen solicitudes que requieran tu aprobación, aparecerán acá."
             />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => { setSelectedRechazo(null); setComentarioRechazo('') }}
-                style={{
-                  padding: '8px 16px', background: '#fff', color: '#374151',
-                  border: '1px solid #d1d5db', borderRadius: 4,
-                  fontSize: 13, cursor: 'pointer'
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmarRechazo}
-                disabled={!comentarioRechazo.trim() || !!procesando}
-                style={{
-                  padding: '8px 16px', background: '#EF4444', color: '#fff',
-                  border: 'none', borderRadius: 4,
-                  fontSize: 13, cursor: 'pointer', fontWeight: 600,
-                  opacity: (!comentarioRechazo.trim() || !!procesando) ? 0.5 : 1
-                }}
-              >
-                Confirmar Rechazo
-              </button>
-            </div>
-          </div>
-        </div>
+          ) : (
+            <>
+              {/* Solicitudes aprobables ahora */}
+              {solicitudesFiltradas.length > 0 && (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
+                  {solicitudesFiltradas.map((s: any) => {
+                    const esCritico = s.monto >= 5_000_000
+                    const esAlto = s.monto >= 1_000_000
+                    const urgente = s.dias_esperando >= 3
+                    
+                    return (
+                      <div key={s.id} style={{
+                        padding: 16, borderBottom: '1px solid #f3f4f6',
+                        borderLeft: `3px solid ${esCritico ? '#DC2626' : esAlto ? '#F59E0B' : '#10B981'}`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                              {esCritico && (
+                                <span style={{
+                                  padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                                  background: '#FEE2E2', color: '#991B1B',
+                                  borderRadius: 3, letterSpacing: '0.03em'
+                                }}>
+                                  CRÍTICO
+                                </span>
+                              )}
+                              {!esCritico && esAlto && (
+                                <span style={{
+                                  padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                                  background: '#FEF3C7', color: '#92400E',
+                                  borderRadius: 3, letterSpacing: '0.03em'
+                                }}>
+                                  ALTO
+                                </span>
+                              )}
+                              {urgente && (
+                                <span style={{
+                                  padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                                  background: '#FED7AA', color: '#9A3412',
+                                  borderRadius: 3, letterSpacing: '0.03em'
+                                }}>
+                                  {s.dias_esperando} DÍAS ESPERANDO
+                                </span>
+                              )}
+                              <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>
+                                {s.solicitud?.descripcion}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#6b7280' }}>
+                              Por <strong>{s.solicitante?.nombre}</strong>
+                              {s.solicitante?.area && ` (${s.solicitante.area})`} · 
+                              {' '}{s.solicitud?.centro_costo || 'Sin centro'} · 
+                              {' '}Nivel {s.nivel_aprobacion}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', marginRight: 16 }}>
+                            <div style={{ fontSize: 10, color: '#6b7280' }}>Monto</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#185FA5' }}>
+                              ${s.monto.toLocaleString('es-CO')}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button onClick={() => router.push(`/solicitudes/${s.solicitud_id}`)} style={btnSecondary}>
+                            Ver detalle
+                          </button>
+                          <button onClick={() => rechazarSolicitud(s.id, s.solicitud_id)} style={btnDanger}>
+                            Rechazar
+                          </button>
+                          <button onClick={() => aprobarSolicitud(s.id, s.solicitud_id)} style={btnSuccess}>
+                            Aprobar gasto
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Bloqueadas (esperando niveles previos) */}
+              {bloqueadas.length > 0 && filtroMonto === 'todos' && (
+                <div style={{
+                  background: '#F9FAFB', border: '1px solid #e5e7eb',
+                  borderRadius: 6, padding: 14
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {bloqueadas.length} solicitud{bloqueadas.length !== 1 ? 'es' : ''} esperando aprobación de niveles previos
+                  </div>
+                  {bloqueadas.slice(0, 3).map((s: any) => (
+                    <div key={s.id} style={{
+                      padding: 10, fontSize: 12, color: '#9ca3af',
+                      display: 'flex', justifyContent: 'space-between',
+                      borderBottom: '1px solid #f3f4f6'
+                    }}>
+                      <span>{s.solicitud?.descripcion}</span>
+                      <span>Nivel {s.nivel_aprobacion} (tuyo) - bloqueado</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
+
+      {/* ============ TAB AUTORIZAR PAGO ============ */}
+      {tab === 'pago' && puedeVerPagos && (
+        <>
+          {ofsPorPagar.length === 0 ? (
+            <Empty
+              titulo="No hay OFs esperando autorización de pago"
+              subtitulo="Cuando una OF sea aprobada y esté lista para pagar, aparecerá acá."
+            />
+          ) : (
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+              {ofsPorPagar.map((of: any) => (
+                <div key={of.id} style={{
+                  padding: 16, borderBottom: '1px solid #f3f4f6',
+                  borderLeft: `3px solid ${of.flags.includes('SOBRECOSTO') ? '#DC2626' : '#F59E0B'}`
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#185FA5'
+                        }}>
+                          {of.codigo_of}
+                        </span>
+                        {of.flags.map((f: string) => (
+                          <span key={f} style={{
+                            padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                            background: f === 'SOBRECOSTO' ? '#FEE2E2' : '#FEF3C7',
+                            color: f === 'SOBRECOSTO' ? '#991B1B' : '#92400E',
+                            borderRadius: 3
+                          }}>
+                            {f.replace('_', ' ')}
+                          </span>
+                        ))}
+                        {of.dias_esperando >= 7 && (
+                          <span style={{
+                            padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                            background: '#FED7AA', color: '#9A3412', borderRadius: 3
+                          }}>
+                            {of.dias_esperando} días
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 3 }}>
+                        {of.descripcion || '(sin descripción)'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>
+                        Pagar a <strong>{of.proveedor?.razon_social || 'Sin proveedor'}</strong> · 
+                        {' '}{of.solicitud?.centro_costo || 'Sin centro'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', marginRight: 16 }}>
+                      <div style={{ fontSize: 10, color: '#6b7280' }}>Monto a pagar</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#185FA5' }}>
+                        ${(parseFloat(of.valor_total) || 0).toLocaleString('es-CO')}
+                      </div>
+                      {of.presupuesto > 0 && (
+                        <div style={{ fontSize: 10, color: of.flags.includes('SOBRECOSTO') ? '#DC2626' : '#10B981' }}>
+                          Presupuesto: ${of.presupuesto.toLocaleString('es-CO')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => router.push(`/ordenes/${of.id}`)} style={btnSecondary}>
+                      Ver detalle
+                    </button>
+                    <button onClick={() => window.open(`/ordenes/${of.id}/imprimir`, '_blank')} style={btnSecondary}>
+                      Ver OF oficial
+                    </button>
+                    <button onClick={() => autorizarPago(of.id)} style={btnSuccess}>
+                      Autorizar pago
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+const btnSecondary: React.CSSProperties = {
+  padding: '7px 14px', background: '#fff', color: '#374151',
+  border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12, fontWeight: 500, cursor: 'pointer'
+}
+const btnSuccess: React.CSSProperties = {
+  padding: '7px 14px', background: '#10B981', color: '#fff',
+  border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer'
+}
+const btnDanger: React.CSSProperties = {
+  padding: '7px 14px', background: '#fff', color: '#DC2626',
+  border: '1px solid #DC2626', borderRadius: 4, fontSize: 12, fontWeight: 500, cursor: 'pointer'
+}
+
+function StatCard({ label, valor, color, subtitulo }: any) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 12, borderRadius: 6 }}>
+      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 700, color }}>{valor}</div>
+      {subtitulo && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{subtitulo}</div>}
+    </div>
+  )
+}
+
+function Tab({ activo, onClick, count, color, children }: any) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '10px 16px', background: 'none', border: 'none',
+      borderBottom: `2px solid ${activo ? '#185FA5' : 'transparent'}`,
+      color: activo ? '#185FA5' : '#6b7280',
+      fontSize: 13, fontWeight: activo ? 600 : 500,
+      cursor: 'pointer', marginBottom: -1,
+      display: 'flex', alignItems: 'center', gap: 6
+    }}>
+      {children}
+      {count > 0 && (
+        <span style={{
+          padding: '1px 7px', background: color || '#9ca3af', color: '#fff',
+          fontSize: 10, fontWeight: 700, borderRadius: 10
+        }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function FilterBtn({ activo, onClick, children }: any) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '5px 12px',
+      background: activo ? '#185FA5' : '#fff',
+      color: activo ? '#fff' : '#374151',
+      border: `1px solid ${activo ? '#185FA5' : '#d1d5db'}`,
+      borderRadius: 4, fontSize: 11, fontWeight: 500,
+      cursor: 'pointer'
+    }}>
+      {children}
+    </button>
+  )
+}
+
+function Empty({ titulo, subtitulo }: any) {
+  return (
+    <div style={{
+      background: '#F9FAFB', border: '1px dashed #d1d5db',
+      padding: 40, borderRadius: 6, textAlign: 'center'
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>{titulo}</div>
+      {subtitulo && <div style={{ fontSize: 12, color: '#9ca3af' }}>{subtitulo}</div>}
     </div>
   )
 }

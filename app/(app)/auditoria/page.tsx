@@ -25,7 +25,7 @@ export default function AuditoriaPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [tab, setTab] = useState<'revisar' | 'historico' | 'anomalias'>('revisar')
+  const [tab, setTab] = useState<'historico' | 'anomalias'>('anomalias')
   const [loading, setLoading] = useState(true)
   const [porRevisar, setPorRevisar] = useState<any[]>([])
   const [historico, setHistorico] = useState<any[]>([])
@@ -214,9 +214,10 @@ export default function AuditoriaPage() {
         borderRadius: 6, padding: 14, marginBottom: 20,
         fontSize: 12, color: '#1E40AF', lineHeight: 1.5
       }}>
-        <strong>¿Qué hacés acá?</strong> Revisás OFs aprobadas antes de autorizar el pago (control pre-pago),
-        auditás procesos ya cerrados para verificar tiempos/cumplimiento, y detectás anomalías
-        (sobrecostos, proveedores incompletos, solicitudes sin respaldo).
+        <strong>¿Qué hacés acá?</strong> Auditás procesos ya cerrados para verificar tiempos y cumplimiento,
+        y revisás anomalías detectadas (sobrecostos, proveedores incompletos, solicitudes sin respaldo).
+        <br/>
+        <em>Las autorizaciones de pago ahora viven en <strong>Aprobaciones → Autorizar pago</strong>.</em>
       </div>
 
       {/* KPIs */}
@@ -240,9 +241,6 @@ export default function AuditoriaPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, marginBottom: 20, borderBottom: '1px solid #e5e7eb' }}>
-        <Tab activo={tab === 'revisar'} onClick={() => setTab('revisar')} count={porRevisar.length} color="#DC2626">
-          Por revisar (pre-pago)
-        </Tab>
         <Tab activo={tab === 'anomalias'} onClick={() => setTab('anomalias')} count={anomalias.length} color="#F59E0B">
           Anomalías detectadas
         </Tab>
@@ -250,87 +248,6 @@ export default function AuditoriaPage() {
           Histórico auditado
         </Tab>
       </div>
-
-      {/* TAB: POR REVISAR */}
-      {tab === 'revisar' && (
-        <>
-          {porRevisar.length === 0 ? (
-            <Empty
-              titulo="No hay OFs pendientes de revisión"
-              subtitulo="Cuando una OF sea aprobada y esté lista para pago, aparecerá acá."
-            />
-          ) : (
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
-              {porRevisar.map((of: any) => (
-                <div key={of.id} style={{
-                  padding: 16, borderBottom: '1px solid #f3f4f6'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{
-                          fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
-                          color: '#185FA5'
-                        }}>
-                          {of.codigo_of}
-                        </span>
-                        {of.flags.map((f: string) => (
-                          <span key={f} style={{
-                            padding: '2px 7px', fontSize: 9, fontWeight: 700,
-                            background: f === 'SOBRECOSTO' ? '#FEE2E2' : '#FEF3C7',
-                            color: f === 'SOBRECOSTO' ? '#991B1B' : '#92400E',
-                            borderRadius: 3, letterSpacing: '0.03em'
-                          }}>
-                            {f.replace('_', ' ')}
-                          </span>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 3 }}>
-                        {of.descripcion || '(sin descripción)'}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>
-                        {of.proveedor?.razon_social || 'Sin proveedor'} · 
-                        {' '}{of.solicitud?.centro_costo || 'Sin centro'}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right', marginRight: 16 }}>
-                      <div style={{ fontSize: 10, color: '#6b7280' }}>Valor OF</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: '#185FA5' }}>
-                        ${(parseFloat(of.valor_total) || 0).toLocaleString('es-CO')}
-                      </div>
-                      {of.presupuesto > 0 && (
-                        <div style={{ fontSize: 10, color: of.flags.includes('SOBRECOSTO') ? '#DC2626' : '#10B981' }}>
-                          Presupuesto: ${of.presupuesto.toLocaleString('es-CO')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => router.push(`/ordenes/${of.id}`)}
-                      style={btnSecondary}
-                    >
-                      Ver detalle
-                    </button>
-                    <button
-                      onClick={() => window.open(`/ordenes/${of.id}/imprimir`, '_blank')}
-                      style={btnSecondary}
-                    >
-                      Ver documento
-                    </button>
-                    <button
-                      onClick={() => aprobarPago(of.id)}
-                      style={btnSuccess}
-                    >
-                      Autorizar pago
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
 
       {/* TAB: ANOMALÍAS */}
       {tab === 'anomalias' && (
