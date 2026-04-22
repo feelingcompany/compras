@@ -223,6 +223,61 @@ export default function DetalleSolicitudPage() {
         </div>
       </div>
 
+      {/* Banner CREAR OF/OS — Solo admin_compras/gerencia cuando solicitud aprobada */}
+      {['admin_compras', 'gerencia'].includes(usuario?.rol || '') &&
+       ['aprobada', 'cotizando'].includes(solicitud.estado) && (
+        <div style={{
+          background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+          border: '1px solid #BFDBFE',
+          borderRadius: 8, padding: 20, marginBottom: 24,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+              Siguiente paso — Fase 2: Formalización
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#111', marginBottom: 4 }}>
+              Esta solicitud está aprobada. Emití la OF o OS al proveedor.
+            </div>
+            <div style={{ fontSize: 12, color: '#4b5563' }}>
+              Como líder de compras, tu trabajo es elegir el proveedor ganador y formalizar la orden.
+            </div>
+          </div>
+          <button
+            onClick={() => router.push(`/solicitudes/${solicitud.id}/crear-orden`)}
+            style={{
+              padding: '12px 24px', background: '#185FA5', color: '#fff',
+              border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', whiteSpace: 'nowrap', marginLeft: 16
+            }}
+          >
+            Crear OF / OS →
+          </button>
+        </div>
+      )}
+
+      {/* Banner si ya se ordenó */}
+      {solicitud.estado === 'ordenada' && (
+        <div style={{
+          background: '#D1FAE5', border: '1px solid #A7F3D0',
+          borderRadius: 6, padding: 14, marginBottom: 24
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#065F46', marginBottom: 2 }}>
+            ✓ OF/OS emitida
+          </div>
+          <div style={{ fontSize: 12, color: '#047857' }}>
+            Esta solicitud ya tiene una orden al proveedor. Revisá en{' '}
+            <button onClick={() => router.push('/ordenes')} style={{
+              background: 'none', border: 'none', color: '#065F46',
+              fontSize: 12, cursor: 'pointer', textDecoration: 'underline',
+              padding: 0, fontWeight: 600
+            }}>
+              Órdenes de Facturación
+            </button>.
+          </div>
+        </div>
+      )}
+
       {/* Banner de acción si me corresponde aprobar */}
       {miAprobacion && (
         <div style={{
