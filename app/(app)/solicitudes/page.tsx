@@ -187,7 +187,7 @@ export default function SolicitudesPage() {
         </button>
       </div>
 
-      {/* Toggle de vista: Lista / Pipeline */}
+      {/* Toggle de vista: Lista / Pipeline / Aprobaciones */}
       {['encargado', 'admin_compras', 'gerencia'].includes(usuario?.rol || '') && (
         <div style={{
           display: 'flex', gap: 4, marginBottom: 20,
@@ -213,6 +213,17 @@ export default function SolicitudesPage() {
             }}
           >
             Pipeline (Kanban)
+          </button>
+          <button
+            onClick={() => router.push('/aprobaciones')}
+            style={{
+              padding: '10px 20px', background: 'none',
+              border: 'none', borderBottom: '2px solid transparent',
+              color: '#6b7280', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', marginBottom: -1
+            }}
+          >
+            Aprobaciones
           </button>
         </div>
       )}

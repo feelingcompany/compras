@@ -4,63 +4,46 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 // ============================================================
-// NAVEGACIÓN ORGANIZADA POR FLUJO OPERATIVO DE COMPRAS
+// MENÚ PROFESIONAL MÍNIMO Y FUNCIONAL
 //
-// MI TRABAJO: lo que requiere MI acción
-// PROCESO DE COMPRAS: las etapas EN ORDEN
-//   Solicitud → Cotización → OS/OF → Radicación → Pago
-// PROVEEDORES, ANÁLISIS, SISTEMA
+// Principios:
+// - Inicio = único centro de comando (no hay dashboard aparte)
+// - Aprobaciones = tab dentro de Solicitudes (no es sección)
+// - Control = unifica contraloría + auditoría + alertas
+// - Proveedores = directorio + evaluación como tabs
 // ============================================================
 
-type NavItem = {
-  label: string
-  path: string
-  roles: string[]
-  sep?: never
-}
-
-type NavSeparator = {
-  label: string
-  sep: true
-  roles: string[]
-  path?: never
-}
-
+type NavItem = { label: string; path: string; roles: string[]; sep?: never }
+type NavSeparator = { label: string; sep: true; roles: string[]; path?: never }
 type NavEntry = NavItem | NavSeparator
 
 const NAV: NavEntry[] = [
-  // MI TRABAJO (bandeja personal)
-  { label: 'Mi trabajo', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Inicio',             path: '/inicio',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Aprobaciones',       path: '/aprobaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  // ÚNICO CENTRO DE COMANDO
+  { label: 'Inicio', path: '/inicio', roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
 
-  // PROCESO DE COMPRAS (orden secuencial del flujo)
-  { label: 'Proceso de compras', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: '1. Solicitudes',     path: '/solicitudes',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: '2. Cotizaciones',    path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '3. Órdenes de Servicio',    path: '/ordenes-servicio',  roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '4. Órdenes de Facturación', path: '/ordenes',           roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '5. Radicación',      path: '/radicacion',        roles: ['admin_compras', 'gerencia'] },
-  { label: '6. Pagos',           path: '/pagos',             roles: ['admin_compras', 'gerencia'] },
+  // PROCESO DE COMPRAS (en orden real del flujo)
+  { label: 'Proceso', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '1. Solicitudes',            path: '/solicitudes',      roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '2. Cotizaciones',           path: '/cotizaciones',     roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '3. Órdenes de Servicio',    path: '/ordenes-servicio', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '4. Órdenes de Facturación', path: '/ordenes',          roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '5. Radicación',             path: '/radicacion',       roles: ['admin_compras', 'gerencia'] },
+  { label: '6. Pagos',                  path: '/pagos',            roles: ['admin_compras', 'gerencia'] },
 
-  // PROVEEDORES
-  { label: 'Proveedores', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Directorio',         path: '/proveedores',  roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Evaluación',         path: '/evaluacion',   roles: ['admin_compras', 'gerencia'] },
+  // RECURSOS
+  { label: 'Recursos', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Proveedores', path: '/proveedores', roles: ['encargado', 'admin_compras', 'gerencia'] },
 
-  // ANÁLISIS
-  { label: 'Análisis', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Dashboard',          path: '/dashboard',    roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Alertas',            path: '/alertas',      roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Score equipo',       path: '/score',        roles: ['admin_compras', 'gerencia'] },
-  { label: 'Contraloría',        path: '/contraloria',  roles: ['admin_compras', 'gerencia'] },
-  { label: 'Auditoría',          path: '/auditoria',    roles: ['admin_compras', 'gerencia'] },
+  // CONTROL
+  { label: 'Control', sep: true, roles: ['admin_compras', 'gerencia'] },
+  { label: 'Control y alertas', path: '/control', roles: ['admin_compras', 'gerencia'] },
+  { label: 'Reportes',          path: '/reportes', roles: ['admin_compras', 'gerencia'] },
 
   // SISTEMA
   { label: 'Sistema', sep: true, roles: ['admin_compras', 'gerencia'] },
-  { label: 'Migración desde Sheets', path: '/migracion',   roles: ['admin_compras', 'gerencia'] },
-  { label: 'Ensayo del proceso',  path: '/simulacion',   roles: ['admin_compras', 'gerencia'] },
-  { label: 'Configuración',      path: '/admin',        roles: ['admin_compras', 'gerencia'] },
+  { label: 'Migración desde Sheets', path: '/migracion',  roles: ['admin_compras', 'gerencia'] },
+  { label: 'Ensayo del proceso',     path: '/simulacion', roles: ['admin_compras', 'gerencia'] },
+  { label: 'Configuración',          path: '/admin',      roles: ['admin_compras', 'gerencia'] },
 ]
 
 export default function Sidebar() {
@@ -85,13 +68,11 @@ export default function Sidebar() {
       borderRight: '1px solid #e5e7eb', display: 'flex',
       flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0
     }}>
-      {/* Header */}
       <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>Compras FC</div>
         <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Feeling Company</div>
       </div>
 
-      {/* Navegación */}
       <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
         {navLimpio.map((item, idx) => {
           if ('sep' in item) {
@@ -124,7 +105,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div style={{ padding: '16px 20px', borderTop: '1px solid #e5e7eb' }}>
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>
