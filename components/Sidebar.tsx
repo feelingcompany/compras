@@ -4,10 +4,12 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 // ============================================================
-// NAVEGACIÓN ORGANIZADA POR TAREAS (no por fases)
-// Las 4 fases de Feeling se ven en:
-//   - Pantalla de inicio (educativo)
-//   - Timeline del detalle de cada solicitud
+// NAVEGACIÓN ORGANIZADA POR FLUJO OPERATIVO DE COMPRAS
+//
+// MI TRABAJO: lo que requiere MI acción
+// PROCESO DE COMPRAS: las etapas EN ORDEN
+//   Solicitud → Cotización → OS/OF → Radicación → Pago
+// PROVEEDORES, ANÁLISIS, SISTEMA
 // ============================================================
 
 type NavItem = {
@@ -27,19 +29,19 @@ type NavSeparator = {
 type NavEntry = NavItem | NavSeparator
 
 const NAV: NavEntry[] = [
-  // MI TRABAJO
+  // MI TRABAJO (bandeja personal)
   { label: 'Mi trabajo', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
   { label: 'Inicio',             path: '/inicio',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Mis solicitudes',    path: '/solicitudes',  roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
   { label: 'Aprobaciones',       path: '/aprobaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
 
-  // COMPRAS - el flujo operativo
-  { label: 'Compras', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Cotizaciones',       path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Órdenes de Facturación', path: '/ordenes',       roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Órdenes de Servicio',    path: '/ordenes-servicio', roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Radicación',         path: '/radicacion',        roles: ['admin_compras', 'gerencia'] },
-  { label: 'Pagos',              path: '/pagos',             roles: ['admin_compras', 'gerencia'] },
+  // PROCESO DE COMPRAS (orden secuencial del flujo)
+  { label: 'Proceso de compras', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '1. Solicitudes',     path: '/solicitudes',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '2. Cotizaciones',    path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '3. Órdenes de Servicio',    path: '/ordenes-servicio',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '4. Órdenes de Facturación', path: '/ordenes',           roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '5. Radicación',      path: '/radicacion',        roles: ['admin_compras', 'gerencia'] },
+  { label: '6. Pagos',           path: '/pagos',             roles: ['admin_compras', 'gerencia'] },
 
   // PROVEEDORES
   { label: 'Proveedores', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
@@ -70,7 +72,7 @@ export default function Sidebar() {
 
   const visibles = NAV.filter(item => item.roles.includes(usuario.rol))
 
-  // Limpiar separadores huérfanos (sin items después)
+  // Limpiar separadores sin items después
   const navLimpio = visibles.filter((item, idx) => {
     if (!('sep' in item)) return true
     const siguiente = visibles[idx + 1]
@@ -79,7 +81,7 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      width: 230, minWidth: 230, background: '#fff',
+      width: 240, minWidth: 240, background: '#fff',
       borderRight: '1px solid #e5e7eb', display: 'flex',
       flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0
     }}>
@@ -122,7 +124,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer con usuario */}
+      {/* Footer */}
       <div style={{ padding: '16px 20px', borderTop: '1px solid #e5e7eb' }}>
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>
