@@ -1,246 +1,503 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth'
 
-const inputStyle = { width: '100%', padding: '8px 10px', border: '0.5px solid #d3d1c7', borderRadius: 8, fontSize: 13, background: '#fafafa', outline: 'none' }
-const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4, display: 'block' }
-const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+// ============================================================
+// AUDITORÍA Y CONTROL (unificado)
+//
+// Dos funciones en un solo módulo:
+// 
+// TAB 1 - "Por revisar": Control en curso
+//   - OFs que esperan revisión antes de pagar
+//   - Detectar sobrecostos vs presupuesto
+//   - Verificar docs completos del proveedor
+//
+// TAB 2 - "Histórico auditado": Trazabilidad
+//   - Solicitudes cerradas (completadas)
+//   - Tiempos por etapa
+//   - Quién aprobó qué y cuándo
+// ============================================================
 
 export default function AuditoriaPage() {
   const { usuario } = useAuth()
-  const [auditorias, setAuditorias] = useState<any[]>([])
-  const [ofsParaAudir, setOfsParaAudit] = useState<any[]>([])
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [tab, setTab] = useState<'revisar' | 'historico' | 'anomalias'>('revisar')
   const [loading, setLoading] = useState(true)
-  const [selectedOf, setSelectedOf] = useState<any>(null)
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState('')
+  const [porRevisar, setPorRevisar] = useState<any[]>([])
+  const [historico, setHistorico] = useState<any[]>([])
+  const [anomalias, setAnomalias] = useState<any[]>([])
+  const [stats, setStats] = useState<any>({})
 
-  const [form, setForm] = useState({
-    of_id: '', rentabilidad_ok: false, politicas_ok: false,
-    legal_ok: false, observaciones: ''
-  })
-
-  useEffect(() => { load() }, [])
-
-  async function load() {
-    const [{ data: auds }, { data: ofList }] = await Promise.all([
-      supabase.from('auditorias_of')
-        .select('*, ordenes_facturacion(codigo_of, valor_total, descripcion, estado_verificacion, proveedores(razon_social)), auditor:usuarios!auditor_id(nombre)')
-        .order('created_at', { ascending: false }),
-      supabase.from('ordenes_facturacion')
-        .select('id, codigo_of, valor_total, descripcion, estado_verificacion, proveedores(razon_social, score, condicion_pago)')
-        .eq('estado_verificacion', 'EN_REVISION')
-        .order('created_at', { ascending: false })
-    ])
-    setAuditorias(auds || [])
-    setOfsParaAudit(ofList || [])
-    setLoading(false)
-  }
-
-  async function loadOf(ofId: string) {
-    setForm(f => ({ ...f, of_id: ofId }))
-    const found = ofsParaAudir.find(o => o.id === ofId)
-    setSelectedOf(found || null)
-  }
-
-  async function handleAudit(aprobada: boolean) {
-    if (!form.of_id) return
-    setSaving(true)
-    const allOk = form.rentabilidad_ok && form.politicas_ok && form.legal_ok
-    const estado = aprobada && allOk ? 'APROBADA' : 'RECHAZADA'
-
-    const { error } = await supabase.from('auditorias_of').insert({
-      of_id: form.of_id,
-      auditor_id: usuario?.id,
-      rentabilidad_ok: form.rentabilidad_ok,
-      politicas_ok: form.politicas_ok,
-      legal_ok: form.legal_ok,
-      observaciones: form.observaciones,
-      estado
-    })
-
-    if (!error) {
-      // Update OF verification state
-      await supabase.from('ordenes_facturacion').update({
-        estado_verificacion: estado === 'APROBADA' ? 'OK' : 'ANULADA'
-      }).eq('id', form.of_id)
-
-      setSuccess(estado === 'APROBADA' ? 'OF aprobada — el proveedor puede ser notificado' : 'OF rechazada y anulada')
-      setSelectedOf(null)
-      setForm({ of_id: '', rentabilidad_ok: false, politicas_ok: false, legal_ok: false, observaciones: '' })
-      await load()
-      setTimeout(() => setSuccess(''), 3000)
+  useEffect(() => {
+    if (!usuario) {
+      router.push('/login')
+      return
     }
-    setSaving(false)
+    if (!['admin_compras', 'gerencia'].includes(usuario.rol)) {
+      router.push('/')
+      return
+    }
+    cargar()
+  }, [usuario])
+
+  const cargar = async () => {
+    try {
+      // 1. POR REVISAR: OFs que esperan revisión pre-pago
+      const { data: ofs } = await supabase
+        .from('ordenes_facturacion')
+        .select('*')
+        .eq('estado_verificacion', 'APROBADA')
+        .not('estado_pago', 'in', '(PAGADO,PAGADA)')
+        .order('created_at', { ascending: false })
+
+      let ofsEnriquecidas: any[] = []
+      if (ofs && ofs.length > 0) {
+        const provIds = [...new Set(ofs.map((o: any) => o.proveedor_id).filter(Boolean))]
+        const solIds = [...new Set(ofs.map((o: any) => o.solicitud_id).filter(Boolean))]
+
+        const [provs, sols, items] = await Promise.all([
+          provIds.length > 0
+            ? supabase.from('proveedores').select('id, razon_social, nit').in('id', provIds)
+            : Promise.resolve({ data: [] }),
+          solIds.length > 0
+            ? supabase.from('solicitudes').select('id, descripcion, centro_costo, solicitante_id').in('id', solIds)
+            : Promise.resolve({ data: [] }),
+          solIds.length > 0
+            ? supabase.from('items_solicitud').select('*').in('solicitud_id', solIds)
+            : Promise.resolve({ data: [] })
+        ])
+
+        ofsEnriquecidas = ofs.map((o: any) => {
+          const proveedor = (provs.data || []).find((p: any) => p.id === o.proveedor_id)
+          const solicitud = (sols.data || []).find((s: any) => s.id === o.solicitud_id)
+          const solicitudItems = (items.data || []).filter((i: any) => i.solicitud_id === o.solicitud_id)
+          const presupuesto = solicitudItems.reduce((s: number, i: any) => s + (parseFloat(i.presupuesto_estimado) || 0), 0)
+          const valorOF = parseFloat(o.valor_total) || 0
+
+          // Flags de control
+          const flags: string[] = []
+          if (presupuesto > 0 && valorOF > presupuesto * 1.1) flags.push('SOBRECOSTO')
+          if (!proveedor?.nit) flags.push('SIN_NIT')
+          if (!solicitud) flags.push('SIN_SOLICITUD')
+
+          return { ...o, proveedor, solicitud, presupuesto, flags }
+        })
+      }
+      setPorRevisar(ofsEnriquecidas)
+
+      // 2. HISTÓRICO: solicitudes completadas
+      const { data: completadas } = await supabase
+        .from('solicitudes')
+        .select('*')
+        .eq('estado', 'completada')
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .limit(50)
+
+      let historicoEnriquecido: any[] = []
+      if (completadas && completadas.length > 0) {
+        const ids = completadas.map((s: any) => s.id)
+        const solicitanteIds = [...new Set(completadas.map((s: any) => s.solicitante_id))]
+
+        const [items, users, aprobs] = await Promise.all([
+          supabase.from('items_solicitud').select('*').in('solicitud_id', ids),
+          supabase.from('usuarios').select('id, nombre').in('id', solicitanteIds),
+          supabase.from('aprobaciones').select('*').in('solicitud_id', ids)
+        ])
+
+        historicoEnriquecido = completadas.map((s: any) => {
+          const its = (items.data || []).filter((i: any) => i.solicitud_id === s.id)
+          const monto = its.reduce((sum: number, i: any) => sum + (parseFloat(i.presupuesto_estimado) || 0), 0)
+          const solicitudAprobs = (aprobs.data || []).filter((a: any) => a.solicitud_id === s.id)
+          const fechaCierre = s.updated_at ? new Date(s.updated_at) : null
+          const fechaCreacion = s.created_at ? new Date(s.created_at) : null
+          const diasTotales = fechaCreacion && fechaCierre
+            ? Math.floor((fechaCierre.getTime() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
+            : null
+
+          return {
+            ...s,
+            monto,
+            aprobaciones: solicitudAprobs,
+            solicitante: (users.data || []).find((u: any) => u.id === s.solicitante_id),
+            diasTotales
+          }
+        })
+      }
+      setHistorico(historicoEnriquecido)
+
+      // 3. ANOMALÍAS: patrones sospechosos
+      const anomaliasDetectadas: any[] = []
+      ofsEnriquecidas.forEach(of => {
+        if (of.flags.includes('SOBRECOSTO')) {
+          anomaliasDetectadas.push({
+            tipo: 'sobrecosto',
+            severidad: 'alta',
+            of,
+            mensaje: `OF ${of.codigo_of} supera presupuesto en más del 10%`,
+            detalle: `Presupuesto: $${of.presupuesto.toLocaleString('es-CO')} → OF: $${(parseFloat(of.valor_total) || 0).toLocaleString('es-CO')}`
+          })
+        }
+        if (of.flags.includes('SIN_NIT')) {
+          anomaliasDetectadas.push({
+            tipo: 'proveedor_incompleto',
+            severidad: 'media',
+            of,
+            mensaje: `OF ${of.codigo_of} tiene proveedor sin NIT registrado`,
+            detalle: of.proveedor?.razon_social || 'Sin proveedor'
+          })
+        }
+        if (of.flags.includes('SIN_SOLICITUD')) {
+          anomaliasDetectadas.push({
+            tipo: 'sin_solicitud',
+            severidad: 'media',
+            of,
+            mensaje: `OF ${of.codigo_of} no está vinculada a una solicitud formal`,
+            detalle: 'Creada sin proceso previo'
+          })
+        }
+      })
+      setAnomalias(anomaliasDetectadas)
+
+      // Stats
+      const montoPorRevisar = ofsEnriquecidas.reduce((s, o) => s + (parseFloat(o.valor_total) || 0), 0)
+      const tiempoPromedio = historicoEnriquecido.length > 0
+        ? historicoEnriquecido.reduce((s, h) => s + (h.diasTotales || 0), 0) / historicoEnriquecido.length
+        : 0
+
+      setStats({
+        porRevisar: ofsEnriquecidas.length,
+        montoPorRevisar,
+        anomalias: anomaliasDetectadas.length,
+        completadas: historicoEnriquecido.length,
+        tiempoPromedio: Math.round(tiempoPromedio),
+      })
+
+      setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
   }
 
-  const estadoColors: Record<string, { bg: string; color: string }> = {
-    PENDIENTE: { bg: '#FAEEDA', color: '#633806' },
-    APROBADA:  { bg: '#EAF3DE', color: '#27500A' },
-    RECHAZADA: { bg: '#FCEBEB', color: '#791F1F' },
+  const aprobarPago = async (ofId: string) => {
+    if (!confirm('¿Autorizar el pago de esta OF? (después no se puede revertir fácilmente)')) return
+    await supabase
+      .from('ordenes_facturacion')
+      .update({ estado_pago: 'PAGADO', updated_at: new Date().toISOString() })
+      .eq('id', ofId)
+    cargar()
   }
 
-  const CheckBox = ({ label, desc, value, onChange }: { label: string; desc: string; value: boolean; onChange: (v: boolean) => void }) => (
-    <div onClick={() => onChange(!value)} style={{
-      display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px',
-      border: `0.5px solid ${value ? '#185FA5' : '#ebebeb'}`,
-      background: value ? '#f0f7ff' : '#fafafa', borderRadius: 10, cursor: 'pointer', transition: 'all .15s'
-    }}>
-      <div style={{
-        width: 20, height: 20, borderRadius: 6, border: `2px solid ${value ? '#185FA5' : '#ddd'}`,
-        background: value ? '#185FA5' : '#fff', flexShrink: 0, marginTop: 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13
-      }}>
-        {value && '✓'}
-      </div>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{desc}</div>
-      </div>
-    </div>
-  )
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Cargando...</div>
+  }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 32, maxWidth: 1300, margin: '0 auto' }}>
+      {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 17, fontWeight: 500 }}>Auditoría de compras</div>
-        <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>Fase 4 · Verificación de rentabilidad, políticas y documentos legales</div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111', margin: 0, marginBottom: 4 }}>
+          Auditoría y Control
+        </h1>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          Revisión pre-pago, trazabilidad histórica y detección de anomalías
+        </div>
       </div>
 
-      {success && (
-        <div style={{ padding: '10px 14px', background: success.includes('aprobada') ? '#EAF3DE' : '#FCEBEB', border: `0.5px solid ${success.includes('aprobada') ? '#b7d9a0' : '#F09595'}`, borderRadius: 8, fontSize: 13, color: success.includes('aprobada') ? '#27500A' : '#791F1F', marginBottom: 16 }}>
-          {success.includes('aprobada') ? '✓' : '✗'} {success}
-        </div>
+      {/* Explicación */}
+      <div style={{
+        background: '#EFF6FF', border: '1px solid #BFDBFE',
+        borderRadius: 6, padding: 14, marginBottom: 20,
+        fontSize: 12, color: '#1E40AF', lineHeight: 1.5
+      }}>
+        <strong>¿Qué hacés acá?</strong> Revisás OFs aprobadas antes de autorizar el pago (control pre-pago),
+        auditás procesos ya cerrados para verificar tiempos/cumplimiento, y detectás anomalías
+        (sobrecostos, proveedores incompletos, solicitudes sin respaldo).
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+        <StatCard label="Por revisar" valor={stats.porRevisar || 0} color="#DC2626" subtitulo="OFs pre-pago" />
+        <StatCard
+          label="Monto"
+          valor={`$${((stats.montoPorRevisar || 0) / 1000000).toFixed(1)}M`}
+          color="#185FA5"
+          subtitulo="Esperando autorización"
+        />
+        <StatCard label="Anomalías" valor={stats.anomalias || 0} color="#F59E0B" subtitulo="Detectadas" />
+        <StatCard label="Completadas" valor={stats.completadas || 0} color="#10B981" subtitulo="Auditadas" />
+        <StatCard
+          label="Días promedio"
+          valor={stats.tiempoPromedio || 0}
+          color="#3730A3"
+          subtitulo="Ciclo completo"
+        />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 2, marginBottom: 20, borderBottom: '1px solid #e5e7eb' }}>
+        <Tab activo={tab === 'revisar'} onClick={() => setTab('revisar')} count={porRevisar.length} color="#DC2626">
+          Por revisar (pre-pago)
+        </Tab>
+        <Tab activo={tab === 'anomalias'} onClick={() => setTab('anomalias')} count={anomalias.length} color="#F59E0B">
+          Anomalías detectadas
+        </Tab>
+        <Tab activo={tab === 'historico'} onClick={() => setTab('historico')} count={historico.length}>
+          Histórico auditado
+        </Tab>
+      </div>
+
+      {/* TAB: POR REVISAR */}
+      {tab === 'revisar' && (
+        <>
+          {porRevisar.length === 0 ? (
+            <Empty
+              titulo="No hay OFs pendientes de revisión"
+              subtitulo="Cuando una OF sea aprobada y esté lista para pago, aparecerá acá."
+            />
+          ) : (
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+              {porRevisar.map((of: any) => (
+                <div key={of.id} style={{
+                  padding: 16, borderBottom: '1px solid #f3f4f6'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
+                          color: '#185FA5'
+                        }}>
+                          {of.codigo_of}
+                        </span>
+                        {of.flags.map((f: string) => (
+                          <span key={f} style={{
+                            padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                            background: f === 'SOBRECOSTO' ? '#FEE2E2' : '#FEF3C7',
+                            color: f === 'SOBRECOSTO' ? '#991B1B' : '#92400E',
+                            borderRadius: 3, letterSpacing: '0.03em'
+                          }}>
+                            {f.replace('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 3 }}>
+                        {of.descripcion || '(sin descripción)'}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>
+                        {of.proveedor?.razon_social || 'Sin proveedor'} · 
+                        {' '}{of.solicitud?.centro_costo || 'Sin centro'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', marginRight: 16 }}>
+                      <div style={{ fontSize: 10, color: '#6b7280' }}>Valor OF</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#185FA5' }}>
+                        ${(parseFloat(of.valor_total) || 0).toLocaleString('es-CO')}
+                      </div>
+                      {of.presupuesto > 0 && (
+                        <div style={{ fontSize: 10, color: of.flags.includes('SOBRECOSTO') ? '#DC2626' : '#10B981' }}>
+                          Presupuesto: ${of.presupuesto.toLocaleString('es-CO')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => router.push(`/ordenes/${of.id}`)}
+                      style={btnSecondary}
+                    >
+                      Ver detalle
+                    </button>
+                    <button
+                      onClick={() => window.open(`/ordenes/${of.id}/imprimir`, '_blank')}
+                      style={btnSecondary}
+                    >
+                      Ver documento
+                    </button>
+                    <button
+                      onClick={() => aprobarPago(of.id)}
+                      style={btnSuccess}
+                    >
+                      Autorizar pago
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-
-        {/* Panel de auditoría */}
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14, color: '#666' }}>OFs EN REVISIÓN — {ofsParaAudir.length} pendientes</div>
-
-          {loading ? (
-            <div style={{ color: '#aaa', fontSize: 13 }}>Cargando...</div>
-          ) : ofsParaAudir.length === 0 ? (
-            <div style={{ background: '#fff', border: '0.5px solid #ebebeb', borderRadius: 12, padding: 24, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
-              No hay OFs pendientes de auditoría
-            </div>
-          ) : ofsParaAudir.map(of => (
-            <div key={of.id} onClick={() => loadOf(of.id)} style={{
-              background: '#fff', border: `0.5px solid ${form.of_id === of.id ? '#185FA5' : '#ebebeb'}`,
-              borderRadius: 10, padding: '12px 14px', marginBottom: 8, cursor: 'pointer', transition: 'all .1s'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#aaa' }}>{of.codigo_of}</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{(of.proveedores as any)?.razon_social || '—'}</div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{of.descripcion}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: Number(of.valor_total) >= 15000000 ? '#E24B4A' : '#1a1a1a' }}>
-                    {fmt(Number(of.valor_total))}
-                  </div>
-                  {Number(of.valor_total) >= 15000000 && (
-                    <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>⚠ Requiere gerencia</div>
-                  )}
-                </div>
-              </div>
-              {(of.proveedores as any)?.score > 0 && (
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-                  Score proveedor: <strong style={{ color: Number((of.proveedores as any).score) >= 4 ? '#27500A' : '#BA7517' }}>{(of.proveedores as any).score}</strong> · {(of.proveedores as any).condicion_pago}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Formulario de auditoría */}
-        <div>
-          {!selectedOf ? (
-            <div style={{ background: '#fff', border: '0.5px solid #ebebeb', borderRadius: 12, padding: 32, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
-              Selecciona una OF de la lista para auditarla
-            </div>
+      {/* TAB: ANOMALÍAS */}
+      {tab === 'anomalias' && (
+        <>
+          {anomalias.length === 0 ? (
+            <Empty
+              titulo="No se detectaron anomalías"
+              subtitulo="Todo está dentro de parámetros normales."
+            />
           ) : (
-            <div style={{ background: '#fff', border: '0.5px solid #ebebeb', borderRadius: 12, padding: 20 }}>
-              <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{selectedOf.codigo_of} — {(selectedOf.proveedores as any)?.razon_social}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{selectedOf.descripcion}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 6, color: Number(selectedOf.valor_total) >= 15000000 ? '#E24B4A' : '#1a1a1a' }}>
-                  {fmt(Number(selectedOf.valor_total))}
-                </div>
-              </div>
-
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 12 }}>Verificar</div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-                <CheckBox
-                  label="✓ Rentabilidad" value={form.rentabilidad_ok} onChange={v => setForm(f => ({ ...f, rentabilidad_ok: v }))}
-                  desc="Está dentro de los estándares de margen definidos por Feeling"
-                />
-                <CheckBox
-                  label="✓ Políticas de pago" value={form.politicas_ok} onChange={v => setForm(f => ({ ...f, politicas_ok: v }))}
-                  desc="Cumple con las políticas de pago y apalancamiento de la compañía"
-                />
-                <CheckBox
-                  label="✓ Documentos legales" value={form.legal_ok} onChange={v => setForm(f => ({ ...f, legal_ok: v }))}
-                  desc="RUT, cámara de comercio y demás docs están en regla y en BBDD"
-                />
-              </div>
-
-              <div style={{ marginBottom: 18 }}>
-                <label style={labelStyle}>Observaciones de auditoría</label>
-                <textarea value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} rows={3}
-                  style={{ ...inputStyle, resize: 'vertical' }} placeholder="Notas, hallazgos, condiciones de aprobación..." />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button onClick={() => handleAudit(false)} disabled={saving} style={{
-                  padding: '10px', border: '0.5px solid #F09595', borderRadius: 8,
-                  background: '#FCEBEB', color: '#791F1F', fontSize: 13, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer'
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+              {anomalias.map((a: any, idx) => (
+                <div key={idx} style={{
+                  padding: 16, borderBottom: '1px solid #f3f4f6',
+                  borderLeft: `3px solid ${a.severidad === 'alta' ? '#DC2626' : '#F59E0B'}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}>
-                  ✗ Rechazar OF
-                </button>
-                <button onClick={() => handleAudit(true)} disabled={saving || !form.rentabilidad_ok || !form.politicas_ok || !form.legal_ok} style={{
-                  padding: '10px', border: 'none', borderRadius: 8,
-                  background: (!form.rentabilidad_ok || !form.politicas_ok || !form.legal_ok) ? '#ddd' : '#185FA5',
-                  color: (!form.rentabilidad_ok || !form.politicas_ok || !form.legal_ok) ? '#aaa' : '#fff',
-                  fontSize: 13, fontWeight: 500, cursor: (!form.rentabilidad_ok || !form.politicas_ok || !form.legal_ok) ? 'not-allowed' : 'pointer'
-                }}>
-                  ✓ Aprobar OF
-                </button>
-              </div>
-              {(!form.rentabilidad_ok || !form.politicas_ok || !form.legal_ok) && (
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 8, textAlign: 'center' }}>
-                  Marca los 3 checks para habilitar la aprobación
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Historial auditorías */}
-          {auditorias.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>Historial reciente</div>
-              {auditorias.slice(0, 5).map(a => {
-                const ec = estadoColors[a.estado] || estadoColors.PENDIENTE
-                return (
-                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8f8f8', fontSize: 13 }}>
-                    <div>
-                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#aaa' }}>{a.ordenes_facturacion?.codigo_of}</span>
-                      <span style={{ marginLeft: 8 }}>{a.ordenes_facturacion?.proveedores?.razon_social}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{
+                        padding: '2px 7px', fontSize: 9, fontWeight: 700,
+                        background: a.severidad === 'alta' ? '#FEE2E2' : '#FEF3C7',
+                        color: a.severidad === 'alta' ? '#991B1B' : '#92400E',
+                        borderRadius: 3, textTransform: 'uppercase'
+                      }}>
+                        {a.severidad}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
+                        {a.mensaje}
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, color: '#aaa' }}>{a.auditor?.nombre}</span>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: ec.bg, color: ec.color }}>{a.estado}</span>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>
+                      {a.detalle}
                     </div>
                   </div>
-                )
-              })}
+                  <button
+                    onClick={() => router.push(`/ordenes/${a.of.id}`)}
+                    style={btnSecondary}
+                  >
+                    Revisar →
+                  </button>
+                </div>
+              ))}
             </div>
           )}
-        </div>
+        </>
+      )}
+
+      {/* TAB: HISTÓRICO */}
+      {tab === 'historico' && (
+        <>
+          {historico.length === 0 ? (
+            <Empty
+              titulo="Sin histórico aún"
+              subtitulo="Cuando haya solicitudes completadas (Fase 4), aparecerán acá para auditoría."
+            />
+          ) : (
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1.3fr 1fr 80px 100px 100px',
+                padding: '10px 16px', background: '#F9FAFB',
+                borderBottom: '1px solid #e5e7eb',
+                fontSize: 10, fontWeight: 600, color: '#6b7280',
+                textTransform: 'uppercase', letterSpacing: '0.04em'
+              }}>
+                <div>Solicitud</div>
+                <div>Centro de costo</div>
+                <div>Solicitante</div>
+                <div style={{ textAlign: 'center' }}>Días</div>
+                <div style={{ textAlign: 'center' }}>Niveles</div>
+                <div style={{ textAlign: 'right' }}>Monto</div>
+              </div>
+
+              {historico.map((h: any) => (
+                <div
+                  key={h.id}
+                  onClick={() => router.push(`/solicitudes/${h.id}`)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1.3fr 1fr 80px 100px 100px',
+                    padding: '12px 16px', borderBottom: '1px solid #f3f4f6',
+                    fontSize: 12, alignItems: 'center', cursor: 'pointer'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                >
+                  <div style={{ fontWeight: 500, color: '#111' }}>
+                    {h.descripcion}
+                  </div>
+                  <div style={{ color: '#6b7280', fontSize: 11 }}>
+                    {h.centro_costo || '—'}
+                  </div>
+                  <div style={{ color: '#374151', fontSize: 11 }}>
+                    {h.solicitante?.nombre || '—'}
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: 11, color: h.diasTotales > 30 ? '#DC2626' : '#6b7280' }}>
+                    {h.diasTotales !== null ? `${h.diasTotales}d` : '—'}
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280' }}>
+                    {h.aprobaciones.length}
+                  </div>
+                  <div style={{ textAlign: 'right', fontWeight: 600, color: '#185FA5' }}>
+                    ${h.monto.toLocaleString('es-CO')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+const btnSecondary: React.CSSProperties = {
+  padding: '7px 14px', background: '#fff', color: '#374151',
+  border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12, fontWeight: 500, cursor: 'pointer'
+}
+const btnSuccess: React.CSSProperties = {
+  padding: '7px 14px', background: '#10B981', color: '#fff',
+  border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer'
+}
+
+function StatCard({ label, valor, color, subtitulo }: any) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: 12, borderRadius: 6 }}>
+      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+        {label}
       </div>
+      <div style={{ fontSize: 18, fontWeight: 700, color }}>{valor}</div>
+      {subtitulo && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{subtitulo}</div>}
+    </div>
+  )
+}
+
+function Tab({ activo, onClick, count, color, children }: any) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '10px 16px', background: 'none', border: 'none',
+      borderBottom: `2px solid ${activo ? '#185FA5' : 'transparent'}`,
+      color: activo ? '#185FA5' : '#6b7280',
+      fontSize: 13, fontWeight: activo ? 600 : 500,
+      cursor: 'pointer', marginBottom: -1,
+      display: 'flex', alignItems: 'center', gap: 6
+    }}>
+      {children}
+      {count > 0 && (
+        <span style={{
+          padding: '1px 7px', background: color || '#9ca3af', color: '#fff',
+          fontSize: 10, fontWeight: 700, borderRadius: 10
+        }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function Empty({ titulo, subtitulo }: any) {
+  return (
+    <div style={{
+      background: '#F9FAFB', border: '1px dashed #d1d5db',
+      padding: 40, borderRadius: 6, textAlign: 'center'
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>{titulo}</div>
+      {subtitulo && <div style={{ fontSize: 12, color: '#9ca3af' }}>{subtitulo}</div>}
     </div>
   )
 }

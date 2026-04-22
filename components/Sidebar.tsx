@@ -4,13 +4,13 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 // ============================================================
-// MENÚ PROFESIONAL MÍNIMO Y FUNCIONAL
+// NAVEGACIÓN PROFESIONAL — 12 ITEMS
 //
 // Principios:
-// - Inicio = único centro de comando (no hay dashboard aparte)
-// - Aprobaciones = tab dentro de Solicitudes (no es sección)
-// - Control = unifica contraloría + auditoría + alertas
-// - Proveedores = directorio + evaluación como tabs
+// 1. Nada redundante (no Dashboard + Inicio separados)
+// 2. Nada solapado (no Contraloría + Auditoría por separado)
+// 3. Flujo numerado para claridad del proceso
+// 4. "Mi trabajo" = lo personal; "Proceso" = el flujo
 // ============================================================
 
 type NavItem = { label: string; path: string; roles: string[]; sep?: never }
@@ -18,32 +18,34 @@ type NavSeparator = { label: string; sep: true; roles: string[]; path?: never }
 type NavEntry = NavItem | NavSeparator
 
 const NAV: NavEntry[] = [
-  // ÚNICO CENTRO DE COMANDO
-  { label: 'Inicio', path: '/inicio', roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  // MI TRABAJO (bandeja personal)
+  { label: 'Mi trabajo', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Inicio',             path: '/inicio',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Aprobaciones',       path: '/aprobaciones', roles: ['encargado', 'admin_compras', 'gerencia'] },
 
-  // PROCESO DE COMPRAS (en orden real del flujo)
-  { label: 'Proceso', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: '1. Solicitudes',            path: '/solicitudes',      roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
-  { label: '2. Cotizaciones',           path: '/cotizaciones',     roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '3. Órdenes de Servicio',    path: '/ordenes-servicio', roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '4. Órdenes de Facturación', path: '/ordenes',          roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: '5. Radicación',             path: '/radicacion',       roles: ['admin_compras', 'gerencia'] },
-  { label: '6. Pagos',                  path: '/pagos',            roles: ['admin_compras', 'gerencia'] },
+  // PROCESO DE COMPRAS (el flujo real, numerado)
+  { label: 'Proceso de compras', sep: true, roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '1. Solicitudes',              path: '/solicitudes',       roles: ['solicitante', 'encargado', 'admin_compras', 'gerencia'] },
+  { label: '2. Cotizaciones',             path: '/cotizaciones',      roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '3. Órdenes de Servicio',      path: '/ordenes-servicio',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '4. Órdenes de Facturación',   path: '/ordenes',           roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: '5. Radicación',               path: '/radicacion',        roles: ['admin_compras', 'gerencia'] },
+  { label: '6. Pagos',                    path: '/pagos',             roles: ['admin_compras', 'gerencia'] },
 
-  // RECURSOS
-  { label: 'Recursos', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
-  { label: 'Proveedores', path: '/proveedores', roles: ['encargado', 'admin_compras', 'gerencia'] },
+  // PROVEEDORES
+  { label: 'Proveedores', sep: true, roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Directorio',         path: '/proveedores',  roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Evaluación',         path: '/evaluacion',   roles: ['admin_compras', 'gerencia'] },
 
-  // CONTROL
+  // CONTROL (fusionado: Contraloría + Auditoría)
   { label: 'Control', sep: true, roles: ['admin_compras', 'gerencia'] },
-  { label: 'Control y alertas', path: '/control', roles: ['admin_compras', 'gerencia'] },
-  { label: 'Reportes',          path: '/reportes', roles: ['admin_compras', 'gerencia'] },
+  { label: 'Alertas',            path: '/alertas',      roles: ['encargado', 'admin_compras', 'gerencia'] },
+  { label: 'Auditoría',          path: '/auditoria',    roles: ['admin_compras', 'gerencia'] },
 
   // SISTEMA
   { label: 'Sistema', sep: true, roles: ['admin_compras', 'gerencia'] },
-  { label: 'Migración desde Sheets', path: '/migracion',  roles: ['admin_compras', 'gerencia'] },
-  { label: 'Ensayo del proceso',     path: '/simulacion', roles: ['admin_compras', 'gerencia'] },
-  { label: 'Configuración',          path: '/admin',      roles: ['admin_compras', 'gerencia'] },
+  { label: 'Migración desde Sheets', path: '/migracion',   roles: ['admin_compras', 'gerencia'] },
+  { label: 'Configuración',      path: '/admin',        roles: ['admin_compras', 'gerencia'] },
 ]
 
 export default function Sidebar() {
@@ -54,8 +56,6 @@ export default function Sidebar() {
   if (!usuario) return null
 
   const visibles = NAV.filter(item => item.roles.includes(usuario.rol))
-
-  // Limpiar separadores sin items después
   const navLimpio = visibles.filter((item, idx) => {
     if (!('sep' in item)) return true
     const siguiente = visibles[idx + 1]
@@ -107,9 +107,7 @@ export default function Sidebar() {
 
       <div style={{ padding: '16px 20px', borderTop: '1px solid #e5e7eb' }}>
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>
-            {usuario.nombre}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{usuario.nombre}</div>
           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2, textTransform: 'capitalize' }}>
             {usuario.rol.replace('_', ' ')}
           </div>
@@ -118,8 +116,7 @@ export default function Sidebar() {
           onClick={() => { logout(); router.push('/login') }}
           style={{
             fontSize: 12, color: '#6b7280', background: 'none',
-            border: 'none', cursor: 'pointer', padding: 0,
-            textDecoration: 'underline'
+            border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline'
           }}
         >
           Cerrar sesión
